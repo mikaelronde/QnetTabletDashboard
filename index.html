@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="dashboard">
+
+    <!-- Row 1 -->
+    <div class="card clock-card">
+      <div class="clock-time" id="clock-time">15:48</div>
+      <div class="clock-date" id="clock-date">1 Apr 2026</div>
+    </div>
+
+    <div class="card doors-card">
+      <div class="card-icon">🔒</div>
+      <div class="door-row">
+        <span class="door-label">Front</span>
+        <span class="door-status locked" id="door-front">LOCKED</span>
+      </div>
+      <div class="door-row">
+        <span class="door-label">Parking</span>
+        <span class="door-status locked" id="door-parking">LOCKED</span>
+      </div>
+    </div>
+
+    <div class="card cars-card">
+      <div class="cars-icon">🚗</div>
+      <div class="car-entry">
+        <span class="car-label">Car 1</span>
+        <div class="car-battery">
+          <div class="battery-bar">
+            <div class="battery-fill" id="car1-battery-fill" style="width:100%"></div>
+          </div>
+          <span class="battery-pct" id="car1-battery">100%</span>
+        </div>
+        <span class="car-status-icon" id="car1-status" title="Connected">🔌</span>
+      </div>
+      <div class="car-entry">
+        <span class="car-label">Car 2</span>
+        <div class="car-battery">
+          <div class="battery-bar">
+            <div class="battery-fill" id="car2-battery-fill" style="width:75%"></div>
+          </div>
+          <span class="battery-pct" id="car2-battery">75%</span>
+        </div>
+        <span class="car-status-icon" id="car2-status" title="Disconnected">⊘</span>
+      </div>
+    </div>
+
+    <div class="card pool-card">
+      <div class="card-icon">🌊</div>
+      <div class="pool-status" id="pool-status">Idle</div>
+      <div class="pool-detail">
+        <span id="pool-time">0h 0m</span>
+        <span class="pool-temp" id="pool-temp">15°C</span>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="card weather-card" id="weather-card">
+      <div class="weather-now">
+        <div class="weather-icon" id="weather-icon-now">–</div>
+        <div class="weather-temp" id="weather-temp-now">–</div>
+        <div class="weather-desc" id="weather-desc-now">Loading...</div>
+      </div>
+      <div class="weather-wind">
+        <span id="wind-speed">–</span>
+        <span id="wind-dir">–</span>
+      </div>
+      <div class="weather-forecast">
+        <div class="forecast-item">
+          <span class="forecast-label">6h</span>
+          <span class="forecast-icon" id="weather-icon-6h">–</span>
+          <span class="forecast-temp" id="weather-temp-6h">–</span>
+        </div>
+        <div class="forecast-item">
+          <span class="forecast-label">24h</span>
+          <span class="forecast-icon" id="weather-icon-24h">–</span>
+          <span class="forecast-temp" id="weather-temp-24h">–</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card temps-card">
+      <div class="temps-heading" id="temps-heading">Temperatures</div>
+      <div class="temp-row">
+        <span class="temp-label">Outdoor</span>
+        <span class="temp-value" id="temp-outdoor">–</span>
+      </div>
+      <div class="temp-row">
+        <span class="temp-label">Patio</span>
+        <span class="temp-value" id="temp-patio">–</span>
+      </div>
+      <div class="temp-row">
+        <span class="temp-label">Dining Room</span>
+        <span class="temp-value" id="temp-diningroom">–</span>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-header">
+        <span>Energy Price Today</span>
+        <span class="chart-current" id="price-current">– öre</span>
+      </div>
+      <canvas id="price-chart"></canvas>
+    </div>
+
+    <div class="card ukraine-card">
+      <div class="ukraine-title">Ukraine</div>
+      <div class="ukraine-grid">
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-personnel">–</span>
+          <span class="ukraine-label">Personnel</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-tanks">–</span>
+          <span class="ukraine-label">Tanks</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-artillery">–</span>
+          <span class="ukraine-label">Artillery</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-armored">–</span>
+          <span class="ukraine-label">APV/AA</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-aircraft">–</span>
+          <span class="ukraine-label">Aircraft</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-missiles">–</span>
+          <span class="ukraine-label">Missiles</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3 -->
+    <div class="card funds-card">
+      <div class="card-icon">💰</div>
+      <div class="funds-row">
+        <span class="funds-label">Last Day</span>
+        <span class="funds-value positive" id="funds-daily">–</span>
+      </div>
+      <div class="funds-row">
+        <span class="funds-label">Since Start</span>
+        <span class="funds-value positive" id="funds-total">–</span>
+      </div>
+    </div>
+
+    <div class="card energy-card">
+      <table class="energy-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Now</th>
+            <th>Yesterday</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="energy-label">Production</td>
+            <td id="energy-prod-now">–</td>
+            <td id="energy-prod-yday">–</td>
+          </tr>
+          <tr>
+            <td class="energy-label">Battery</td>
+            <td id="energy-batt-now">–</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="energy-label">From Grid</td>
+            <td id="energy-grid-in-now">–</td>
+            <td id="energy-grid-in-yday">–</td>
+          </tr>
+          <tr>
+            <td class="energy-label">To Grid</td>
+            <td id="energy-grid-out-now">–</td>
+            <td id="energy-grid-out-yday">–</td>
+          </tr>
+          <tr>
+            <td class="energy-label">House</td>
+            <td id="energy-house-now">–</td>
+            <td id="energy-house-yday">–</td>
+          </tr>
+          <tr>
+            <td class="energy-label">Heating</td>
+            <td id="energy-heat-now">–</td>
+            <td id="energy-heat-yday">–</td>
+          </tr>
+          <tr>
+            <td class="energy-label">Car</td>
+            <td id="energy-car-now">–</td>
+            <td id="energy-car-yday">–</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="energy-total-row">
+        Total Production: <span id="energy-prod-total">–</span>
+      </div>
+    </div>
+
+    <div class="card earnings-card">
+      <div class="card-icon">🔋</div>
+      <div class="earnings-value positive" id="earnings-day">–</div>
+      <div class="earnings-value positive" id="earnings-total">–</div>
+    </div>
+
+  </div>
+
+  <!-- Overlay popups -->
+  <div class="overlay hidden" id="temps-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">Temperatures</div>
+      <div id="temps-all"></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="weather-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">Weather Forecast</div>
+      <table class="weather-detail-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th></th>
+            <th>Temp</th>
+            <th>Wind</th>
+            <th>Gust</th>
+            <th>Humidity</th>
+            <th>Rain</th>
+            <th>Pressure</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="wd-label">Now</td>
+            <td class="wd-icon" id="wd-icon-now">–</td>
+            <td class="wd-temp" id="wd-temp-now">–</td>
+            <td class="wd-wind" id="wd-wind-now">–</td>
+            <td class="wd-wind" id="wd-gust-now">–</td>
+            <td id="wd-humidity-now">–</td>
+            <td id="wd-rain-now">–</td>
+            <td id="wd-pressure-now">–</td>
+          </tr>
+          <tr>
+            <td class="wd-label">6h</td>
+            <td class="wd-icon" id="wd-icon-6h">–</td>
+            <td class="wd-temp" id="wd-temp-6h">–</td>
+            <td class="wd-wind" id="wd-wind-6h">–</td>
+            <td class="wd-wind" id="wd-gust-6h">–</td>
+            <td id="wd-humidity-6h">–</td>
+            <td id="wd-rain-6h">–</td>
+            <td id="wd-pressure-6h">–</td>
+          </tr>
+          <tr>
+            <td class="wd-label">12h</td>
+            <td class="wd-icon" id="wd-icon-12h">–</td>
+            <td class="wd-temp" id="wd-temp-12h">–</td>
+            <td class="wd-wind" id="wd-wind-12h">–</td>
+            <td class="wd-wind" id="wd-gust-12h">–</td>
+            <td id="wd-humidity-12h">–</td>
+            <td id="wd-rain-12h">–</td>
+            <td id="wd-pressure-12h">–</td>
+          </tr>
+          <tr>
+            <td class="wd-label">24h</td>
+            <td class="wd-icon" id="wd-icon-24h">–</td>
+            <td class="wd-temp" id="wd-temp-24h">–</td>
+            <td class="wd-wind" id="wd-wind-24h">–</td>
+            <td class="wd-wind" id="wd-gust-24h">–</td>
+            <td id="wd-humidity-24h">–</td>
+            <td id="wd-rain-24h">–</td>
+            <td id="wd-pressure-24h">–</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,519 @@
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0b0e14;
+  --surface:    #141820;
+  --surface-hi: #1a1f2a;
+  --border:     #1e2430;
+  --text:       #e0e4ec;
+  --text-dim:   #7a8394;
+  --accent:     #5b8af0;
+  --green:      #3dd68c;
+  --red:        #f06560;
+  --amber:      #e8b339;
+  --radius:     12px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+/* ── Dashboard Grid: 4 cols × 3 rows ── */
+.dashboard {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.8fr 1fr;
+  grid-template-rows: 1fr 1.2fr 1fr;
+  gap: 10px;
+  padding: 10px;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Card Base ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.card-icon {
+  font-size: 2rem;
+  margin-bottom: 6px;
+  filter: grayscale(0.2);
+}
+
+/* ── Clock ── */
+.clock-card {
+  grid-row: 1;
+  grid-column: 1;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 16px 20px;
+}
+
+.clock-time {
+  font-size: 4.2rem;
+  font-weight: 200;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: #fff;
+}
+
+.clock-date {
+  font-size: 1.3rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ── Doors ── */
+.doors-card {
+  grid-row: 1;
+  grid-column: 2;
+  align-items: center;
+  gap: 6px;
+}
+
+.door-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 220px;
+  padding: 4px 0;
+}
+
+.door-label { font-size: 1.15rem; color: var(--text-dim); }
+
+.door-status {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 12px;
+  border-radius: 6px;
+}
+
+.door-status.locked   { color: var(--green); background: rgba(61,214,140,0.1); }
+.door-status.unlocked { color: var(--red);   background: rgba(240,101,96,0.1); }
+
+/* ── Cars (combined tile) ── */
+.cars-card {
+  grid-row: 1;
+  grid-column: 3;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+}
+
+.cars-icon {
+  font-size: 1.8rem;
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.car-entry {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.car-label {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 52px;
+}
+
+.car-battery {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.battery-bar {
+  flex: 1;
+  height: 12px;
+  background: var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.battery-bar.small { height: 10px; }
+
+.battery-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 6px;
+  transition: width 0.6s ease;
+}
+
+.battery-pct {
+  font-size: 1.3rem;
+  font-weight: 600;
+  min-width: 52px;
+  text-align: right;
+}
+
+.car-status-icon {
+  font-size: 1.4rem;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* ── Pool ── */
+.pool-card {
+  grid-row: 1;
+  grid-column: 4;
+  text-align: center;
+  align-items: center;
+}
+
+.pool-status {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pool-detail {
+  display: flex;
+  gap: 16px;
+  font-size: 1.1rem;
+  color: var(--text-dim);
+}
+
+.pool-temp { color: var(--accent); }
+
+/* ── Weather ── */
+.weather-card {
+  grid-row: 2;
+  grid-column: 1;
+  padding: 16px 20px;
+  cursor: pointer;
+}
+
+.weather-now {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.weather-icon { font-size: 2.8rem; }
+.weather-temp { font-size: 2.6rem; font-weight: 300; color: #fff; }
+.weather-desc { font-size: 1.05rem; color: var(--text-dim); }
+
+.weather-wind {
+  display: flex;
+  gap: 10px;
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.weather-forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forecast-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+}
+
+.forecast-label {
+  color: var(--text-dim);
+  min-width: 32px;
+}
+
+.forecast-temp { color: var(--text); }
+
+/* ── Overlay popups ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 32px;
+  min-width: 320px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.overlay-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Weather detail table in overlay */
+.weather-detail-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 1.05rem;
+}
+
+.weather-detail-table th {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 12px 8px;
+  text-align: right;
+}
+
+.weather-detail-table th:first-child,
+.weather-detail-table th:nth-child(2) { text-align: left; }
+
+.weather-detail-table td {
+  padding: 8px 12px;
+  text-align: right;
+  color: var(--text);
+}
+
+.weather-detail-table .wd-label {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  min-width: 36px;
+}
+
+.weather-detail-table .wd-icon {
+  text-align: left;
+  font-size: 1.5rem;
+}
+
+.weather-detail-table .wd-temp {
+  font-weight: 600;
+  color: #fff;
+}
+
+.weather-detail-table .wd-wind {
+  color: var(--text);
+}
+
+/* ── Temperatures ── */
+.temps-card {
+  grid-row: 2;
+  grid-column: 2;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.temps-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.temps-heading:hover { color: var(--text); }
+
+.temp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.temp-label { font-size: 1.1rem; color: var(--text-dim); }
+.temp-value { font-size: 1.4rem; font-weight: 500; }
+
+/* ── Price Chart ── */
+.chart-card {
+  grid-row: 2;
+  grid-column: 3;
+  padding: 14px 18px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  color: var(--text-dim);
+}
+
+.chart-current {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#price-chart {
+  flex: 1;
+  width: 100%;
+}
+
+/* ── Ukraine ── */
+.ukraine-card {
+  grid-row: 2;
+  grid-column: 4;
+  align-items: center;
+  padding: 14px;
+}
+
+.ukraine-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.ukraine-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  width: 100%;
+}
+
+.ukraine-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ukraine-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ukraine-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Funds ── */
+.funds-card {
+  grid-row: 3;
+  grid-column: 1;
+  align-items: center;
+}
+
+.funds-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 200px;
+  padding: 4px 0;
+}
+
+.funds-label { font-size: 1.05rem; color: var(--text-dim); }
+.funds-value { font-size: 1.2rem; font-weight: 600; }
+.funds-value.positive { color: var(--green); }
+.funds-value.negative { color: var(--red); }
+
+/* ── Energy Table ── */
+.energy-card {
+  grid-row: 3;
+  grid-column: 2 / 4;
+  padding: 12px 18px;
+  justify-content: center;
+}
+
+.energy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.05rem;
+}
+
+.energy-table th {
+  text-align: right;
+  color: var(--text-dim);
+  font-weight: 500;
+  padding: 3px 12px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.energy-table th:first-child { text-align: left; }
+
+.energy-table td {
+  padding: 4px 12px;
+  text-align: right;
+}
+
+.energy-table .energy-label {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.battery-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.battery-inline .battery-bar { width: 140px; }
+.battery-inline span { font-size: 1.05rem; min-width: 40px; text-align: right; }
+
+.energy-total-row {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+  color: var(--text-dim);
+}
+
+.energy-total-row span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── Earnings ── */
+.earnings-card {
+  grid-row: 3;
+  grid-column: 4;
+  align-items: center;
+  gap: 4px;
+}
+
+.earnings-value { font-size: 1.3rem; font-weight: 600; }
+.earnings-value.positive { color: var(--green); }
+.earnings-value.negative { color: var(--red); }
+
+/* ── Utilities ── */
+.status-connected    { color: var(--green); }
+.status-disconnected { color: var(--text-dim); }
+.status-charging     { color: var(--amber); }
