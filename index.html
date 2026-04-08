@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#080b10">
+  <link rel="manifest" href="manifest.json">
   <title>Home Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200..700;1,9..40,200..700&family=JetBrains+Mono:wght@300;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 </head>
@@ -12,12 +20,13 @@
 
     <!-- Row 1 -->
     <div class="card clock-card">
+      <div class="weather-alert" id="weather-alert"></div>
       <div class="clock-time" id="clock-time">15:48</div>
       <div class="clock-date" id="clock-date">1 Apr 2026</div>
     </div>
 
     <div class="card doors-card">
-      <div class="card-icon">🔒</div>
+      <div class="card-title">Doors</div>
       <div class="door-row">
         <span class="door-label">Front</span>
         <span class="door-status locked" id="door-front">LOCKED</span>
@@ -29,7 +38,7 @@
     </div>
 
     <div class="card cars-card">
-      <div class="cars-icon">🚗</div>
+      <div class="card-title">Cars</div>
       <div class="car-entry">
         <span class="car-label">Car 1</span>
         <div class="car-battery">
@@ -53,7 +62,7 @@
     </div>
 
     <div class="card pool-card">
-      <div class="card-icon">🌊</div>
+      <div class="card-title">Pool</div>
       <div class="pool-status" id="pool-status">Idle</div>
       <div class="pool-detail">
         <span id="pool-time">0h 0m</span>
@@ -79,35 +88,91 @@
           <span class="forecast-temp" id="weather-temp-6h">–</span>
         </div>
         <div class="forecast-item">
-          <span class="forecast-label">24h</span>
-          <span class="forecast-icon" id="weather-icon-24h">–</span>
-          <span class="forecast-temp" id="weather-temp-24h">–</span>
+          <span class="forecast-label" id="forecast-label-tomorrow">–</span>
+          <span class="forecast-icon" id="weather-icon-tomorrow">–</span>
+          <span class="forecast-temp" id="weather-temp-tomorrow">–</span>
+        </div>
+        <div class="forecast-item">
+          <span class="forecast-label" id="forecast-label-dayafter">–</span>
+          <span class="forecast-icon" id="weather-icon-dayafter">–</span>
+          <span class="forecast-temp" id="weather-temp-dayafter">–</span>
         </div>
       </div>
     </div>
 
     <div class="card temps-card">
       <div class="temps-heading" id="temps-heading">Temperatures</div>
-      <div class="temp-row">
+      <div class="temp-row temp-row-clickable" data-sensor="outside" data-label="Outdoor">
         <span class="temp-label">Outdoor</span>
         <span class="temp-value" id="temp-outdoor">–</span>
       </div>
-      <div class="temp-row">
+      <div class="temp-row temp-row-clickable" data-sensor="patio" data-label="Patio">
         <span class="temp-label">Patio</span>
         <span class="temp-value" id="temp-patio">–</span>
       </div>
-      <div class="temp-row">
-        <span class="temp-label">Dining Room</span>
+      <div class="temp-row temp-row-clickable" data-sensor="diningRoom" data-label="Dining Room">
+        <span class="temp-label">Dining</span>
         <span class="temp-value" id="temp-diningroom">–</span>
+      </div>
+      <div class="temp-row temp-row-clickable" data-sensor="livingRoom" data-label="Living Room">
+        <span class="temp-label">Living</span>
+        <span class="temp-value" id="temp-livingroom">–</span>
+      </div>
+      <div class="temp-row temp-row-clickable" data-sensor="office" data-label="Office">
+        <span class="temp-label">Office</span>
+        <span class="temp-value" id="temp-office">–</span>
+      </div>
+      <div class="temp-row temp-row-clickable" data-sensor="bedroom" data-label="Bedroom">
+        <span class="temp-label">Bedroom</span>
+        <span class="temp-value" id="temp-bedroom">–</span>
+      </div>
+      <div class="temp-row temp-row-clickable" data-sensor="playhouse" data-label="Playhouse">
+        <span class="temp-label">Playhouse</span>
+        <span class="temp-value" id="temp-playhouse">–</span>
+      </div>
+      <div class="temp-row temp-row-clickable" data-sensor="attic" data-label="Attic">
+        <span class="temp-label">Attic</span>
+        <span class="temp-value" id="temp-attic">–</span>
       </div>
     </div>
 
     <div class="card chart-card">
       <div class="chart-header">
         <span>Energy Price Today</span>
-        <span class="chart-current" id="price-current">– öre</span>
+        <span class="chart-prices"><span class="chart-current" id="price-current">– öre</span> <span class="chart-max" id="price-max"></span></span>
       </div>
       <canvas id="price-chart"></canvas>
+    </div>
+
+    <div class="card tvtime-card">
+      <div class="card-title">Screen Time</div>
+      <div id="tvtime-list"></div>
+    </div>
+
+    <div class="card status-card">
+      <div class="status-title">System Status</div>
+      <div class="kpi-grid">
+        <div class="kpi-item" id="kpi-network" data-overlay="network-overlay">
+          <span class="kpi-dot" id="kpi-dot-network"></span>
+          <span class="kpi-label">Network</span>
+          <span class="kpi-val" id="kpi-val-network">–</span>
+        </div>
+        <div class="kpi-item" id="kpi-integrations" data-overlay="integrations-overlay">
+          <span class="kpi-dot" id="kpi-dot-integrations"></span>
+          <span class="kpi-label">Integrations</span>
+          <span class="kpi-val" id="kpi-val-integrations">–</span>
+        </div>
+        <div class="kpi-item" id="kpi-sensors" data-overlay="sensors-overlay">
+          <span class="kpi-dot" id="kpi-dot-sensors"></span>
+          <span class="kpi-label">Sensors</span>
+          <span class="kpi-val" id="kpi-val-sensors">–</span>
+        </div>
+        <div class="kpi-item" id="kpi-backup" data-overlay="backup-overlay">
+          <span class="kpi-dot" id="kpi-dot-backup"></span>
+          <span class="kpi-label">SQL Backup</span>
+          <span class="kpi-val" id="kpi-val-backup">–</span>
+        </div>
+      </div>
     </div>
 
     <div class="card ukraine-card">
@@ -142,7 +207,7 @@
 
     <!-- Row 3 -->
     <div class="card funds-card">
-      <div class="card-icon">💰</div>
+      <div class="card-title">Funds</div>
       <div class="funds-row">
         <span class="funds-label">Last Day</span>
         <span class="funds-value positive" id="funds-daily">–</span>
@@ -154,6 +219,7 @@
     </div>
 
     <div class="card energy-card">
+      <div class="card-title">Energy</div>
       <table class="energy-table">
         <thead>
           <tr>
@@ -206,14 +272,20 @@
     </div>
 
     <div class="card earnings-card">
-      <div class="card-icon">🔋</div>
-      <div class="earnings-value positive" id="earnings-day">–</div>
-      <div class="earnings-value positive" id="earnings-total">–</div>
+      <div class="card-title">Battery Savings</div>
+      <div class="earnings-row">
+        <span class="earnings-label">Yesterday</span>
+        <span class="earnings-value positive" id="earnings-day">–</span>
+      </div>
+      <div class="earnings-row">
+        <span class="earnings-label">Total</span>
+        <span class="earnings-value positive" id="earnings-total">–</span>
+      </div>
     </div>
 
   </div>
 
-  <!-- Overlay popups -->
+  <!-- Overlay: All Temperatures -->
   <div class="overlay hidden" id="temps-overlay">
     <div class="overlay-panel">
       <div class="overlay-title">Temperatures</div>
@@ -221,6 +293,7 @@
     </div>
   </div>
 
+  <!-- Overlay: Weather Detail -->
   <div class="overlay hidden" id="weather-overlay">
     <div class="overlay-panel">
       <div class="overlay-title">Weather Forecast</div>
@@ -234,7 +307,6 @@
             <th>Gust</th>
             <th>Humidity</th>
             <th>Rain</th>
-            <th>Pressure</th>
           </tr>
         </thead>
         <tbody>
@@ -246,7 +318,6 @@
             <td class="wd-wind" id="wd-gust-now">–</td>
             <td id="wd-humidity-now">–</td>
             <td id="wd-rain-now">–</td>
-            <td id="wd-pressure-now">–</td>
           </tr>
           <tr>
             <td class="wd-label">6h</td>
@@ -256,7 +327,6 @@
             <td class="wd-wind" id="wd-gust-6h">–</td>
             <td id="wd-humidity-6h">–</td>
             <td id="wd-rain-6h">–</td>
-            <td id="wd-pressure-6h">–</td>
           </tr>
           <tr>
             <td class="wd-label">12h</td>
@@ -266,7 +336,6 @@
             <td class="wd-wind" id="wd-gust-12h">–</td>
             <td id="wd-humidity-12h">–</td>
             <td id="wd-rain-12h">–</td>
-            <td id="wd-pressure-12h">–</td>
           </tr>
           <tr>
             <td class="wd-label">24h</td>
@@ -276,13 +345,100 @@
             <td class="wd-wind" id="wd-gust-24h">–</td>
             <td id="wd-humidity-24h">–</td>
             <td id="wd-rain-24h">–</td>
-            <td id="wd-pressure-24h">–</td>
+          </tr>
+          <tr class="wd-daily-row">
+            <td class="wd-label" id="wd-label-tomorrow">Tomorrow</td>
+            <td class="wd-icon" id="wd-icon-tomorrow">–</td>
+            <td class="wd-temp" id="wd-temp-tomorrow">–</td>
+            <td class="wd-wind" id="wd-wind-tomorrow">–</td>
+            <td class="wd-wind" id="wd-gust-tomorrow">–</td>
+            <td id="wd-humidity-tomorrow">–</td>
+            <td id="wd-rain-tomorrow">–</td>
+          </tr>
+          <tr class="wd-daily-row">
+            <td class="wd-label" id="wd-label-dayafter">Day After</td>
+            <td class="wd-icon" id="wd-icon-dayafter">–</td>
+            <td class="wd-temp" id="wd-temp-dayafter">–</td>
+            <td class="wd-wind" id="wd-wind-dayafter">–</td>
+            <td class="wd-wind" id="wd-gust-dayafter">–</td>
+            <td id="wd-humidity-dayafter">–</td>
+            <td id="wd-rain-dayafter">–</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- Overlay: Temperature History -->
+  <div class="overlay hidden" id="temp-history-overlay">
+    <div class="overlay-panel overlay-panel-wide">
+      <div class="overlay-title" id="temp-history-title">Temperature</div>
+      <div class="history-chart-section">
+        <div class="history-chart-label">Last 24 Hours</div>
+        <div class="history-chart-wrap"><canvas id="temp-chart-24h"></canvas></div>
+        <span class="chart-note"></span>
+      </div>
+      <div class="history-chart-section">
+        <div class="history-chart-label">Daily Average (14 days)</div>
+        <div class="history-chart-wrap"><canvas id="temp-chart-14d"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay: Energy History -->
+  <div class="overlay hidden" id="energy-history-overlay">
+    <div class="overlay-panel overlay-panel-wide">
+      <div class="overlay-title" id="energy-history-title">Energy</div>
+      <div class="history-chart-section">
+        <div class="history-chart-wrap history-chart-wrap-tall"><canvas id="energy-history-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay: Network Status -->
+  <div class="overlay hidden" id="network-overlay">
+    <div class="overlay-panel overlay-panel-wide">
+      <div class="overlay-title">Network Devices</div>
+      <div id="network-detail"></div>
+    </div>
+  </div>
+
+  <!-- Overlay: Integrations -->
+  <div class="overlay hidden" id="integrations-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">Integrations</div>
+      <div id="integrations-detail"></div>
+    </div>
+  </div>
+
+  <!-- Overlay: Sensors -->
+  <div class="overlay hidden" id="sensors-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">Sensor Status</div>
+      <div id="sensors-detail"></div>
+    </div>
+  </div>
+
+  <!-- Overlay: SQL Backup -->
+  <div class="overlay hidden" id="backup-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">SQL Backups</div>
+      <div id="backup-detail"></div>
+    </div>
+  </div>
+
+  <script>
+    // Scale the fixed 1920×1200 layout to fit any screen
+    function scaleDashboard() {
+      const dash = document.querySelector('.dashboard');
+      const scaleX = window.innerWidth / 1920;
+      const scaleY = window.innerHeight / 1200;
+      const scale = Math.min(scaleX, scaleY);
+      dash.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', scaleDashboard);
+    window.addEventListener('DOMContentLoaded', scaleDashboard);
+  </script>
   <script src="js/dashboard.js"></script>
 </body>
 </html>

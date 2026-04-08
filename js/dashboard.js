@@ -1,10 +1,15 @@
 /* ── Configuration ── */
 const CONFIG = {
   homeDataUrl: 'http://192.168.1.100/homedata.json',
+  apiBaseUrl: 'http://192.168.1.100:3001',
   authToken: '',
   pollInterval: 30_000,
   smhiUrl: 'https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/12.89/lat/55.52/data.json',
   smhiPollInterval: 600_000,
+  healthCheckUrl: 'http://192.168.1.100/healthcheck.json',
+  pingApiUrl: 'http://192.168.1.100/dashboard/pingapi/api/ping',
+  sqlBackupUrl: 'http://192.168.1.100/dashboard/pingapi/api/sqlbackup',
+  statusPollInterval: 60_000,
 };
 
 /* ── Clock ── */
@@ -73,7 +78,38 @@ function getWeatherFromEntry(entry) {
     humidity: d.relative_humidity,
     rainProb: d.probability_of_precipitation,
     rainMm: d.precipitation_amount_mean,
-    pressure: d.air_pressure_at_mean_sea_level,
+    windSpeed: d.wind_speed,
+  };
+}
+
+function groupEntriesByDate(timeSeries) {
+  const days = {};
+  for (const entry of timeSeries) {
+    const d = new Date(entry.time);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!days[key]) days[key] = [];
+    days[key].push(entry);
+  }
+  return days;
+}
+
+function computeDailySummary(entries) {
+  if (!entries || !entries.length) return null;
+  const temps = entries.map(e => e.data.air_temperature);
+  const symbols = entries.map(e => e.data.symbol_code);
+  const freq = {};
+  symbols.forEach(s => freq[s] = (freq[s] || 0) + 1);
+  const topSymbol = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+  return {
+    avgTemp: temps.reduce((a, b) => a + b, 0) / temps.length,
+    minTemp: Math.min(...temps),
+    maxTemp: Math.max(...temps),
+    symbol: Number(topSymbol),
+    wind: entries.reduce((a, e) => a + e.data.wind_speed, 0) / entries.length,
+    gust: Math.max(...entries.map(e => e.data.wind_speed_of_gust)),
+    humidity: entries.reduce((a, e) => a + e.data.relative_humidity, 0) / entries.length,
+    rainTotal: entries.reduce((a, e) => a + (e.data.precipitation_amount_mean || 0), 0),
+    rainProb: Math.max(...entries.map(e => e.data.probability_of_precipitation || 0)),
   };
 }
 
@@ -89,10 +125,20 @@ async function fetchWeather() {
     const entry12h = findClosestEntry(data.timeSeries, now + 12 * 3600_000);
     const entry24h = findClosestEntry(data.timeSeries, now + 24 * 3600_000);
 
+    // Daily summaries for tomorrow and day after
+    const byDate = groupEntriesByDate(data.timeSeries);
+    const today = new Date();
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
+    const fmtKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const tomorrowSummary = computeDailySummary(byDate[fmtKey(tomorrow)]);
+    const dayAfterSummary = computeDailySummary(byDate[fmtKey(dayAfter)]);
+
     // Compact view
     applyWeatherEntry(nowEntry, 'now');
     applyForecastEntry(entry6h, '6h');
-    applyForecastEntry(entry24h, '24h');
+    applyDaySummaryCompact(tomorrowSummary, 'tomorrow', tomorrow);
+    applyDaySummaryCompact(dayAfterSummary, 'dayafter', dayAfter);
 
     if (nowEntry?.data) {
       const ws = nowEntry.data.wind_speed;
@@ -101,21 +147,35 @@ async function fetchWeather() {
       document.getElementById('wind-dir').textContent = degToCardinal(wd);
     }
 
-    // Expanded view
+    // Expanded view — hourly entries
     const entries = { now: nowEntry, '6h': entry6h, '12h': entry12h, '24h': entry24h };
     for (const [suffix, entry] of Object.entries(entries)) {
       const w = getWeatherFromEntry(entry);
       if (!w) continue;
-      const el = (id) => document.getElementById(id);
-      const set = (id, txt) => { const e = el(id); if (e) e.textContent = txt; };
+      const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
       set(`wd-icon-${suffix}`, w.icon);
       set(`wd-temp-${suffix}`, `${Math.round(w.temp)}\u00B0C`);
       set(`wd-wind-${suffix}`, w.wind);
       set(`wd-gust-${suffix}`, `${w.gust} m/s`);
       set(`wd-humidity-${suffix}`, `${Math.round(w.humidity)}%`);
-      set(`wd-rain-${suffix}`, w.rainProb > 0 ? `${w.rainProb}% (${w.rainMm} mm)` : `${w.rainProb}%`);
-      set(`wd-pressure-${suffix}`, `${Math.round(w.pressure)} hPa`);
+      set(`wd-rain-${suffix}`, `${w.rainProb}% ${w.rainMm} mm`);
     }
+
+    // Expanded view — daily summaries
+    for (const [suffix, summary] of [['tomorrow', tomorrowSummary], ['dayafter', dayAfterSummary]]) {
+      if (!summary) continue;
+      const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+      const w = WSYMB2[summary.symbol] || { icon: '\u2753' };
+      set(`wd-icon-${suffix}`, w.icon);
+      set(`wd-temp-${suffix}`, `${Math.round(summary.minTemp)}\u2013${Math.round(summary.maxTemp)}\u00B0C`);
+      set(`wd-wind-${suffix}`, `${summary.wind.toFixed(1)} m/s`);
+      set(`wd-gust-${suffix}`, `${summary.gust.toFixed(1)} m/s`);
+      set(`wd-humidity-${suffix}`, `${Math.round(summary.humidity)}%`);
+      set(`wd-rain-${suffix}`, `${summary.rainProb}% ${summary.rainTotal.toFixed(1)} mm`);
+    }
+
+    // Weather alert on compact card
+    updateWeatherAlert(nowEntry, data.timeSeries);
   } catch (err) {
     console.error('Failed to fetch SMHI weather:', err);
   }
@@ -142,6 +202,48 @@ function applyForecastEntry(entry, suffix) {
   document.getElementById(`weather-temp-${suffix}`).textContent = `${Math.round(temp)}\u00B0C`;
 }
 
+function applyDaySummaryCompact(summary, suffix, date) {
+  if (!summary) return;
+  const w = WSYMB2[summary.symbol] || { icon: '\u2753' };
+  const iconEl = document.getElementById(`weather-icon-${suffix}`);
+  const tempEl = document.getElementById(`weather-temp-${suffix}`);
+  const labelEl = document.getElementById(`forecast-label-${suffix}`);
+  if (iconEl) iconEl.textContent = w.icon;
+  if (tempEl) tempEl.textContent = `${Math.round(summary.minTemp)}\u2013${Math.round(summary.maxTemp)}\u00B0C`;
+  if (labelEl) labelEl.textContent = date.toLocaleDateString('en-GB', { weekday: 'short' });
+}
+
+function updateWeatherAlert(nowEntry, timeSeries) {
+  const el = document.getElementById('weather-alert');
+  if (!el) return;
+
+  const isRaining = nowEntry?.data?.precipitation_amount_mean > 0;
+
+  // Check if wind exceeds 10 m/s at any point today
+  const todayStr = new Date().toLocaleDateString('sv-SE');
+  let isWindyToday = false;
+  if (timeSeries) {
+    for (const entry of timeSeries) {
+      const entryDate = new Date(entry.time).toLocaleDateString('sv-SE');
+      if (entryDate !== todayStr) continue;
+      if (entry.data.wind_speed >= 10) { isWindyToday = true; break; }
+    }
+  }
+
+  const showRain = isRaining;
+  const showWind = isWindyToday;
+
+  if (!showRain && !showWind) {
+    el.textContent = '';
+    return;
+  }
+
+  let text = '\u26A0\uFE0F';
+  if (showRain) text += ' \uD83C\uDF27\uFE0F';
+  if (showWind) text += ' \uD83D\uDCA8';
+  el.textContent = text;
+}
+
 function degToCardinal(deg) {
   const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   return dirs[Math.round(deg / 45) % 8];
@@ -153,7 +255,7 @@ function toggleOverlay(id) {
   overlay.classList.toggle('hidden');
 }
 
-document.getElementById('temps-overlay').addEventListener('click', () => toggleOverlay('temps-overlay'));
+document.getElementById('temps-overlay')?.addEventListener('click', () => toggleOverlay('temps-overlay'));
 document.getElementById('weather-overlay').addEventListener('click', () => toggleOverlay('weather-overlay'));
 
 // Stop clicks on the panel from closing the overlay
@@ -162,54 +264,85 @@ document.querySelectorAll('.overlay-panel').forEach(p => p.addEventListener('cli
 /* ── Weather toggle ── */
 document.getElementById('weather-card').addEventListener('click', () => toggleOverlay('weather-overlay'));
 
-/* ── Temperatures toggle ── */
-document.querySelector('.temps-card').addEventListener('click', () => toggleOverlay('temps-overlay'));
+/* ── Temperatures: click individual rows for history ── */
+document.querySelectorAll('.temps-card .temp-row-clickable').forEach(row => {
+  row.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sensor = row.dataset.sensor;
+    const label = row.dataset.label;
+    if (sensor && label) showTempHistory(sensor, label);
+  });
+});
 
 /* ── Price Chart ── */
 let priceChart = null;
 
-function initPriceChart(prices, labelData, isMultiDay) {
+function initPriceChart(nordpoolPrices) {
+  if (!nordpoolPrices || nordpoolPrices.length === 0) return;
+
   const ctx = document.getElementById('price-chart').getContext('2d');
-  const currentHour = new Date().getHours();
+  const now = new Date();
+  const currentQtr = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
 
-  if (!prices || prices.length === 0) {
-    prices = [
-      108, 105, 102, 100, 103, 112, 135, 172, 236, 299,
-      363, 427, 390, 350, 310, 280, 250, 220, 195, 175,
-      155, 140, 130, 118
-    ];
-    labelData = prices.map((_, i) => ({ hour: i }));
-    isMultiDay = false;
+  // Sort by time, build labels and prices
+  const sorted = [...nordpoolPrices].sort((a, b) => new Date(a.time) - new Date(b.time));
+  const days = {};
+  for (const entry of sorted) {
+    const d = new Date(entry.time);
+    const dayKey = d.toLocaleDateString('sv-SE');
+    if (!days[dayKey]) days[dayKey] = [];
+    days[dayKey].push(entry);
   }
+  const dayKeys = Object.keys(days).sort();
+  const isMultiDay = dayKeys.length > 1;
 
-  // Highlight current hour (index 0..23 for today in single-day, same for multi-day)
-  const barColors = prices.map((_, i) =>
-    i === currentHour ? 'rgba(91,138,240,0.9)' :
-    (isMultiDay && i >= 24) ? 'rgba(91,138,240,0.15)' : 'rgba(91,138,240,0.25)'
-  );
+  const prices = sorted.map(e => Math.round(e.price));
+  const labels = sorted.map(e => {
+    const d = new Date(e.time);
+    return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  });
 
-  const chartLabels = labelData.map(l => l.hour);
+  // Color: highlight current quarter, dim tomorrow's data
+  const todayCount = days[dayKeys[0]]?.length || 96;
+  const pointColors = prices.map((_, i) => {
+    if (i === currentQtr) return 'rgba(91,138,240,1)';
+    return 'transparent';
+  });
+  const segmentColor = (ctx) => {
+    const i = ctx.p0DataIndex;
+    if (isMultiDay && i >= todayCount) return 'rgba(91,138,240,0.3)';
+    return 'rgba(91,138,240,0.8)';
+  };
+  const fillColor = (ctx) => {
+    const i = ctx.p0DataIndex;
+    if (isMultiDay && i >= todayCount) return 'rgba(91,138,240,0.03)';
+    return 'rgba(91,138,240,0.1)';
+  };
 
   if (priceChart) {
-    priceChart.data.labels = chartLabels;
+    priceChart.data.labels = labels;
     priceChart.data.datasets[0].data = prices;
-    priceChart.data.datasets[0].backgroundColor = barColors;
-    priceChart.options.scales.x.ticks.callback = isMultiDay
-      ? (v) => v === 0 ? (labelData[0]?.day || '0') : v === 24 ? (labelData[24]?.day || '24') : (v % 6 === 0 ? chartLabels[v] : '')
-      : (v) => v % 4 === 0 ? v : '';
     priceChart.update('none');
     return;
   }
 
   priceChart = new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
-      labels: chartLabels,
+      labels,
       datasets: [{
         data: prices,
-        backgroundColor: barColors,
-        borderRadius: 2,
-        borderSkipped: false,
+        borderColor: 'rgba(91,138,240,0.8)',
+        backgroundColor: 'rgba(91,138,240,0.08)',
+        segment: {
+          borderColor: segmentColor,
+          backgroundColor: fillColor,
+        },
+        fill: true,
+        tension: 0.2,
+        pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 5),
+        pointBackgroundColor: pointColors,
+        borderWidth: 2,
       }]
     },
     options: {
@@ -220,56 +353,35 @@ function initPriceChart(prices, labelData, isMultiDay) {
         x: {
           grid: { display: false },
           ticks: {
-            color: '#7a8394',
+            color: '#6b7a90',
             font: { size: 11 },
-            callback: isMultiDay
-              ? (v) => v === 0 ? (labelData[0]?.day || '0') : v === 24 ? (labelData[24]?.day || '24') : (v % 6 === 0 ? chartLabels[v] : '')
-              : (v) => v % 4 === 0 ? v : '',
+            maxTicksLimit: isMultiDay ? 12 : 8,
+            callback: function(val, idx) {
+              // Show only full hours
+              const label = this.getLabelForValue(idx);
+              if (label && label.endsWith(':00')) {
+                const hour = parseInt(label);
+                if (isMultiDay) return hour % 4 === 0 ? label : '';
+                return hour % 3 === 0 ? label : '';
+              }
+              return '';
+            },
           },
           border: { display: false },
         },
         y: {
           grid: { color: 'rgba(255,255,255,0.04)' },
           ticks: {
-            color: '#7a8394',
-            font: { size: 12 },
+            color: '#6b7a90',
+            font: { size: 11 },
             maxTicksLimit: 5,
           },
           border: { display: false },
+          min: 0,
         }
       }
     }
   });
-}
-
-/* ── NordPool prices → hourly arrays (supports 1 or 2 days) ── */
-function nordpoolToHourly(nordpoolPrices) {
-  // Group by date, then average quarter-hours into hourly buckets
-  const days = {};
-  for (const entry of nordpoolPrices) {
-    const d = new Date(entry.time);
-    const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (!days[dateKey]) days[dateKey] = { sums: new Array(24).fill(0), counts: new Array(24).fill(0), date: d };
-    const hour = d.getHours();
-    days[dateKey].sums[hour] += entry.price;
-    days[dateKey].counts[hour]++;
-  }
-
-  // Sort by date, build flat arrays
-  const sorted = Object.values(days).sort((a, b) => a.date - b.date);
-  const prices = [];
-  const labels = [];
-  const isMultiDay = sorted.length > 1;
-
-  for (const day of sorted) {
-    const dayLabel = day.date.toLocaleDateString('sv-SE', { weekday: 'short' });
-    for (let h = 0; h < 24; h++) {
-      prices.push(day.counts[h] > 0 ? Math.round(day.sums[h] / day.counts[h]) : 0);
-      labels.push(isMultiDay ? { hour: h, day: dayLabel } : { hour: h });
-    }
-  }
-
-  return { prices, labels, isMultiDay };
 }
 
 /* ── Data Parsing Helpers ── */
@@ -323,10 +435,15 @@ function updateDashboard(data) {
     document.getElementById('pool-temp').textContent = formatTemp(poolTemp);
   }
 
-  // Temperatures (default 3)
+  // Temperatures (all except pool)
   setTemp('temp-outdoor', findTemp(data.temperatures, 'outside'));
   setTemp('temp-patio', findTemp(data.temperatures, 'patio'));
   setTemp('temp-diningroom', findTemp(data.temperatures, 'diningRoom'));
+  setTemp('temp-livingroom', findTemp(data.temperatures, 'livingRoom'));
+  setTemp('temp-office', findTemp(data.temperatures, 'office'));
+  setTemp('temp-bedroom', findTemp(data.temperatures, 'bedroom'));
+  setTemp('temp-playhouse', findTemp(data.temperatures, 'playhouse'));
+  setTemp('temp-attic', findTemp(data.temperatures, 'attic'));
 
   // Temperatures (expanded — all sensors)
   if (data.temperatures) {
@@ -335,8 +452,12 @@ function updateDashboard(data) {
     for (const sensor of data.temperatures) {
       const label = TEMP_LABELS[sensor.name] || sensor.name;
       const row = document.createElement('div');
-      row.className = 'temp-row';
+      row.className = 'temp-row temp-row-clickable';
       row.innerHTML = `<span class="temp-label">${label}</span><span class="temp-value">${formatTemp(sensor.value)}</span>`;
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showTempHistory(sensor.name, label);
+      });
       container.appendChild(row);
     }
   }
@@ -350,14 +471,18 @@ function updateDashboard(data) {
   if (data.energyCost) {
     document.getElementById('price-current').textContent =
       `${data.energyCost.current} \u00F6re`;
+    if (data.energyCost.maxToday) {
+      document.getElementById('price-max').textContent =
+        `max ${data.energyCost.maxToday}`;
+    }
   }
 
   // NordPool prices chart
   if (data.nordpoolPrices?.length) {
-    const result = nordpoolToHourly(data.nordpoolPrices);
-    initPriceChart(result.prices, result.labels, result.isMultiDay);
+    initPriceChart(data.nordpoolPrices);
+    const days = new Set(data.nordpoolPrices.map(p => new Date(p.time).toLocaleDateString('sv-SE')));
     const titleEl = document.querySelector('.chart-header span:first-child');
-    if (titleEl) titleEl.textContent = result.isMultiDay ? 'Energy Price Today + Tomorrow' : 'Energy Price Today';
+    if (titleEl) titleEl.textContent = days.size > 1 ? 'Energy Price Today + Tomorrow' : 'Energy Price Today';
   }
 
   // Funds
@@ -377,6 +502,11 @@ function updateDashboard(data) {
   // Ukraine stats
   if (data.ukraineStats) {
     updateUkraine(data.ukraineStats);
+  }
+
+  // TV Time
+  if (data.tvTime?.children) {
+    updateTvTime(data.tvTime.children);
   }
 }
 
@@ -489,6 +619,445 @@ function updateUkraine(stats) {
   }
 }
 
+function updateTvTime(children) {
+  const container = document.getElementById('tvtime-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (const [name, data] of Object.entries(children)) {
+    const used = data.minutesUsed || 0;
+    const limit = data.limit || 30;
+    const remaining = data.minutesRemaining ?? (limit - used);
+    const pct = Math.min(100, Math.round((used / limit) * 100));
+    const color = remaining <= 0 ? 'var(--red)' : remaining <= 10 ? 'var(--amber)' : 'var(--green)';
+
+    const row = document.createElement('div');
+    row.className = 'tvtime-row';
+    row.innerHTML = `
+      <span class="tvtime-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+      <div class="tvtime-bar-wrap">
+        <div class="tvtime-bar-fill" style="width:${pct}%; background:${color}"></div>
+      </div>
+      <span class="tvtime-values">${remaining}/${limit} min</span>`;
+    container.appendChild(row);
+  }
+}
+
+/* ══════════════════════════════════════════════ */
+/* ── System Status KPIs                      ── */
+/* ══════════════════════════════════════════════ */
+
+let cachedPingData = null;
+let cachedHealthData = null;
+let cachedBackupData = null;
+
+function setKpi(id, color, value) {
+  const dot = document.getElementById(`kpi-dot-${id}`);
+  const val = document.getElementById(`kpi-val-${id}`);
+  if (dot) { dot.className = `kpi-dot ${color}`; }
+  if (val) val.textContent = value;
+}
+
+async function fetchNetworkStatus() {
+  try {
+    const resp = await fetch(CONFIG.pingApiUrl);
+    const data = await resp.json();
+    cachedPingData = data;
+    const down = data.down || 0;
+    if (down === 0) {
+      setKpi('network', 'green', 'OK');
+    } else {
+      setKpi('network', down >= 3 ? 'red' : 'yellow', `${down}/${data.total} Down`);
+    }
+  } catch (err) {
+    setKpi('network', 'red', 'Error');
+    console.error('Failed to fetch ping status:', err);
+  }
+}
+
+async function fetchHealthCheck() {
+  try {
+    const resp = await fetch(CONFIG.healthCheckUrl);
+    let text = await resp.text();
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const data = JSON.parse(text);
+    cachedHealthData = data;
+
+    // Integrations
+    const intFail = data.integrations?.results?.filter(r => !r.ok).length || 0;
+    if (intFail === 0) {
+      setKpi('integrations', 'green', 'OK');
+    } else {
+      setKpi('integrations', 'red', `${intFail} Failing`);
+    }
+
+    // Sensors
+    const sensorFail = data.sensorData?.filter(s => !s.ok).length || 0;
+    if (sensorFail === 0) {
+      setKpi('sensors', 'green', 'OK');
+    } else {
+      setKpi('sensors', sensorFail >= 3 ? 'red' : 'yellow', `${sensorFail} Stale`);
+    }
+  } catch (err) {
+    setKpi('integrations', 'red', 'Error');
+    setKpi('sensors', 'red', 'Error');
+    console.error('Failed to fetch health check:', err);
+  }
+}
+
+async function fetchSqlBackup() {
+  try {
+    const resp = await fetch(CONFIG.sqlBackupUrl);
+    const data = await resp.json();
+    cachedBackupData = data;
+    const failCount = data.failCount || 0;
+    if (failCount === 0) {
+      setKpi('backup', 'green', 'OK');
+    } else {
+      setKpi('backup', 'red', `${failCount}/${data.total} Fail`);
+    }
+  } catch (err) {
+    setKpi('backup', 'red', 'Error');
+    console.error('Failed to fetch SQL backup status:', err);
+  }
+}
+
+function renderNetworkDetail() {
+  const container = document.getElementById('network-detail');
+  if (!cachedPingData?.devices) { container.textContent = 'No data'; return; }
+
+  const groups = {};
+  for (const d of cachedPingData.devices) {
+    const g = d.group || 'Other';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(d);
+  }
+
+  container.innerHTML = '';
+  for (const [group, devices] of Object.entries(groups)) {
+    const label = document.createElement('div');
+    label.className = 'status-group-label';
+    label.textContent = group;
+    container.appendChild(label);
+
+    for (const d of devices) {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      row.innerHTML = `
+        <span class="kpi-dot ${d.online ? 'green' : 'red'}"></span>
+        <span class="status-row-name">${d.name}</span>
+        <span class="status-row-detail">${d.ip}</span>
+        <span class="status-row-detail">${d.online ? d.rttMs + ' ms' : 'Offline'}</span>`;
+      container.appendChild(row);
+    }
+  }
+}
+
+function renderIntegrationsDetail() {
+  const container = document.getElementById('integrations-detail');
+  if (!cachedHealthData?.integrations?.results) { container.textContent = 'No data'; return; }
+
+  container.innerHTML = '';
+  for (const item of cachedHealthData.integrations.results) {
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = `
+      <span class="kpi-dot ${item.ok ? 'green' : 'red'}"></span>
+      <span class="status-row-name">${item.name}</span>
+      <span class="status-row-detail">${item.ok ? 'OK' : 'Failing'}</span>`;
+    container.appendChild(row);
+  }
+}
+
+function renderSensorsDetail() {
+  const container = document.getElementById('sensors-detail');
+  if (!cachedHealthData) { container.textContent = 'No data'; return; }
+
+  container.innerHTML = '';
+
+  // Sensor data
+  if (cachedHealthData.sensorData) {
+    const label = document.createElement('div');
+    label.className = 'status-group-label';
+    label.textContent = 'Sensors';
+    container.appendChild(label);
+
+    for (const s of cachedHealthData.sensorData) {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      const age = s.lastUpdated ? timeSince(s.lastUpdated) : 'Unknown';
+      row.innerHTML = `
+        <span class="kpi-dot ${s.ok ? 'green' : 'red'}"></span>
+        <span class="status-row-name">${s.name}</span>
+        <span class="status-row-detail">${age}</span>`;
+      container.appendChild(row);
+    }
+  }
+
+  // System data
+  if (cachedHealthData.systemData) {
+    const label = document.createElement('div');
+    label.className = 'status-group-label';
+    label.textContent = 'System Data';
+    container.appendChild(label);
+
+    for (const s of cachedHealthData.systemData) {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      const age = s.lastUpdated ? timeSince(s.lastUpdated) : 'Unknown';
+      row.innerHTML = `
+        <span class="kpi-dot ${s.ok ? 'green' : 'red'}"></span>
+        <span class="status-row-name">${s.name}</span>
+        <span class="status-row-detail">${age}</span>`;
+      container.appendChild(row);
+    }
+  }
+}
+
+function renderBackupDetail() {
+  const container = document.getElementById('backup-detail');
+  if (!cachedBackupData?.databases) { container.textContent = 'No data'; return; }
+
+  container.innerHTML = '';
+  for (const db of cachedBackupData.databases) {
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = `
+      <span class="kpi-dot ${db.ok ? 'green' : 'red'}"></span>
+      <span class="status-row-name">${db.name}</span>
+      <span class="status-row-detail">${db.sizeMb} MB</span>
+      <span class="status-row-detail">${db.lastModified || 'Missing'}</span>`;
+    container.appendChild(row);
+  }
+}
+
+function timeSince(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - d;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/* ══════════════════════════════════════════════ */
+/* ── Shared chart helpers                    ── */
+/* ══════════════════════════════════════════════ */
+
+// SQL Server stores local time but mssql driver appends 'Z' — strip it
+function parseLocalTime(raw) {
+  return new Date(typeof raw === 'string' ? raw.replace('Z', '') : raw);
+}
+
+// Standard chart options for 24h line charts
+function make24hChartOptions(unit, yMin, yMax) {
+  const yScale = {
+    grid: { color: 'rgba(255,255,255,0.04)' },
+    ticks: { color: '#7a8394', font: { size: 11 }, callback: v => `${v} ${unit}` },
+    border: { display: false },
+  };
+  if (yMin !== undefined) yScale.min = yMin;
+  if (yMax !== undefined) yScale.suggestedMax = yMax;
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    spanGaps: true,
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#7a8394', font: { size: 11 } },
+        border: { display: false },
+      },
+      y: yScale
+    }
+  };
+}
+
+const OUTDOOR_SENSORS = ['outside', 'patio', 'playhouse', 'attic'];
+
+/* ══════════════════════════════════════════════ */
+/* ── Temperature History (SQL-powered)       ── */
+/* ══════════════════════════════════════════════ */
+
+// homedata sensor name → SQL tblTemp intSensor ID
+const SENSOR_ID_MAP = {
+  outside: 231,
+  patio: 247,
+  diningRoom: 135,
+  livingRoom: 167,
+  office: 199,
+  bedroom: 151,
+  playhouse: 110,
+  attic: 183,
+  refrigerator: 215,
+};
+
+let tempChart24h = null;
+let tempChart14d = null;
+
+async function showTempHistory(sensorName, label) {
+  const overlay = document.getElementById('temp-history-overlay');
+  const title = document.getElementById('temp-history-title');
+  const container24h = document.getElementById('temp-chart-24h');
+  const container14d = document.getElementById('temp-chart-14d');
+
+  title.textContent = label;
+  overlay.classList.remove('hidden');
+
+  const sensorId = SENSOR_ID_MAP[sensorName];
+  if (!sensorId) {
+    container24h.parentElement.querySelector('.chart-note').textContent = 'No historical data for this sensor';
+    return;
+  }
+
+  if (tempChart24h) { tempChart24h.destroy(); tempChart24h = null; }
+  if (tempChart14d) { tempChart14d.destroy(); tempChart14d = null; }
+
+  try {
+    const [data24h, data14d] = await Promise.all([
+      fetch(`${CONFIG.apiBaseUrl}/api/history/temperature?sensorId=${sensorId}&hours=24`).then(r => r.json()),
+      fetch(`${CONFIG.apiBaseUrl}/api/history/temperature/daily?sensorId=${sensorId}&days=14`).then(r => r.json()),
+    ]);
+
+    // 24h chart — already hourly from server
+    const labels24h = data24h.map(d => parseLocalTime(d.datHour).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }));
+    const temps24h = data24h.map(d => Math.round(d.avgTemp * 10) / 10);
+
+    tempChart24h = new Chart(container24h.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels24h,
+        datasets: [{
+          data: temps24h,
+          borderColor: 'rgba(91,138,240,0.8)',
+          backgroundColor: 'rgba(91,138,240,0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2,
+        }]
+      },
+      options: OUTDOOR_SENSORS.includes(sensorName)
+        ? make24hChartOptions('\u00B0C')
+        : make24hChartOptions('\u00B0C', 10, 30),
+    });
+
+    // 14d daily averages — already aggregated from server
+    const dailyAvgs = data14d.map(d => Math.round(d.avgTemp * 10) / 10);
+    const dailyLabels = data14d.map(d => {
+      const dt = parseLocalTime(d.datDay);
+      return `${dt.getDate()}/${dt.getMonth() + 1}`;
+    });
+
+    tempChart14d = new Chart(container14d.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: dailyLabels,
+        datasets: [{
+          data: dailyAvgs,
+          backgroundColor: dailyAvgs.map(v => v >= 0 ? 'rgba(61,214,140,0.4)' : 'rgba(240,101,96,0.4)'),
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#7a8394', font: { size: 11 } },
+            border: { display: false },
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: '#7a8394', font: { size: 11 }, callback: v => `${v}\u00B0C` },
+            border: { display: false },
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Failed to fetch temperature history:', err);
+  }
+}
+
+/* ══════════════════════════════════════════════ */
+/* ── Energy History (SQL-powered)            ── */
+/* ══════════════════════════════════════════════ */
+
+// Map energy table row IDs to tblPowerProduction column or tblPowerConsumption sensor
+const ENERGY_ROW_MAP = {
+  'energy-prod': { source: 'production', field: 'productionW', label: 'Solar Production', unit: 'kW', toKw: true },
+  'energy-batt': { source: 'production', field: 'batteryW', label: 'Battery', unit: 'kW', toKw: true },
+  'energy-grid-in': { source: 'production', field: 'gridW', label: 'From Grid', unit: 'kW', toKw: true, filter: v => Math.max(0, v) },
+  'energy-grid-out': { source: 'production', field: 'gridW', label: 'To Grid', unit: 'kW', toKw: true, filter: v => Math.max(0, -v) },
+  'energy-house': { source: 'production', field: 'houseW', label: 'House Total', unit: 'kW', toKw: true },
+  'energy-heat': { source: 'consumption', sensor: 'Heating', label: 'Heating', unit: 'kWh' },
+  'energy-car': { source: 'consumption', sensor: 'CarCharge', label: 'Car Charging', unit: 'kWh' },
+};
+
+let energyHistoryChart = null;
+
+async function showEnergyHistory(rowKey) {
+  const mapping = ENERGY_ROW_MAP[rowKey];
+  if (!mapping) return;
+
+  const overlay = document.getElementById('energy-history-overlay');
+  const title = document.getElementById('energy-history-title');
+  const canvas = document.getElementById('energy-history-chart');
+
+  title.textContent = `${mapping.label} \u2014 Last 24 Hours`;
+  overlay.classList.remove('hidden');
+
+  if (energyHistoryChart) { energyHistoryChart.destroy(); energyHistoryChart = null; }
+
+  try {
+    let labels, values, unit;
+
+    if (mapping.source === 'production') {
+      const data = await fetch(`${CONFIG.apiBaseUrl}/api/history/power?hours=24`).then(r => r.json());
+      labels = data.map(d => parseLocalTime(d.datDate).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }));
+      values = data.map(d => {
+        let v = d[mapping.field];
+        if (mapping.filter) v = mapping.filter(v);
+        if (mapping.toKw) v = v / 1000;
+        return Math.round(v * 100) / 100;
+      });
+      unit = mapping.unit;
+    } else {
+      const data = await fetch(`${CONFIG.apiBaseUrl}/api/history/consumption?hours=24&sensor=${mapping.sensor}`).then(r => r.json());
+      labels = data.map(d => parseLocalTime(d.datStartDate).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }));
+      values = data.map(d => d.dblConsumptionkWh);
+      unit = mapping.unit;
+    }
+
+    energyHistoryChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: 'rgba(91,138,240,0.8)',
+          backgroundColor: 'rgba(91,138,240,0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2,
+        }]
+      },
+      options: make24hChartOptions(unit, 0, mapping.toKw ? 1 : undefined),
+    });
+  } catch (err) {
+    console.error('Failed to fetch energy history:', err);
+  }
+}
+
 /* ── Data Fetching ── */
 async function fetchHomeData() {
   if (!CONFIG.homeDataUrl) return;
@@ -520,4 +1089,55 @@ document.addEventListener('DOMContentLoaded', () => {
   if (CONFIG.homeDataUrl) {
     setInterval(fetchHomeData, CONFIG.pollInterval);
   }
+
+  // Energy row click handlers
+  document.querySelectorAll('.energy-table tbody tr').forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 2) return;
+    const nowCell = cells[1];
+    const id = nowCell?.id;
+    if (!id) return;
+    const rowKey = id.replace('-now', '');
+    if (ENERGY_ROW_MAP[rowKey]) {
+      row.classList.add('energy-row-clickable');
+      row.addEventListener('click', () => showEnergyHistory(rowKey));
+    }
+  });
+
+  // Overlay close handlers
+  document.getElementById('temp-history-overlay').addEventListener('click', () => {
+    document.getElementById('temp-history-overlay').classList.add('hidden');
+  });
+  document.getElementById('energy-history-overlay').addEventListener('click', () => {
+    document.getElementById('energy-history-overlay').classList.add('hidden');
+  });
+
+  // System status KPI click handlers
+  const kpiOverlayMap = {
+    'kpi-network': { overlay: 'network-overlay', render: renderNetworkDetail },
+    'kpi-integrations': { overlay: 'integrations-overlay', render: renderIntegrationsDetail },
+    'kpi-sensors': { overlay: 'sensors-overlay', render: renderSensorsDetail },
+    'kpi-backup': { overlay: 'backup-overlay', render: renderBackupDetail },
+  };
+
+  for (const [kpiId, config] of Object.entries(kpiOverlayMap)) {
+    const kpiEl = document.getElementById(kpiId);
+    const overlayEl = document.getElementById(config.overlay);
+    if (kpiEl && overlayEl) {
+      kpiEl.addEventListener('click', () => {
+        config.render();
+        overlayEl.classList.remove('hidden');
+      });
+      overlayEl.addEventListener('click', () => overlayEl.classList.add('hidden'));
+      overlayEl.querySelector('.overlay-panel').addEventListener('click', e => e.stopPropagation());
+    }
+  }
+
+  // System status polling
+  fetchNetworkStatus();
+  fetchHealthCheck();
+  fetchSqlBackup();
+  setInterval(fetchNetworkStatus, CONFIG.statusPollInterval);
+  setInterval(fetchHealthCheck, CONFIG.statusPollInterval);
+  setInterval(fetchSqlBackup, CONFIG.statusPollInterval);
 });

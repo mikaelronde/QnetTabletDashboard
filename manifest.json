@@ -1,0 +1,9 @@
+{
+  "name": "Home Dashboard",
+  "short_name": "Dashboard",
+  "start_url": "/tabletdashboard/",
+  "display": "fullscreen",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
+  "orientation": "landscape"
+}
