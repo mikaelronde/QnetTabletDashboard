@@ -66,7 +66,7 @@
       <div class="pool-status" id="pool-status">Idle</div>
       <div class="pool-detail">
         <span id="pool-time">0h 0m</span>
-        <span class="pool-temp" id="pool-temp">15°C</span>
+        <span class="pool-temp" id="pool-temp">–</span>
       </div>
     </div>
 
@@ -141,12 +141,18 @@
         <span>Energy Price Today</span>
         <span class="chart-prices"><span class="chart-current" id="price-current">– öre</span> <span class="chart-max" id="price-max"></span></span>
       </div>
-      <canvas id="price-chart"></canvas>
+      <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
     </div>
 
-    <div class="card tvtime-card">
-      <div class="card-title">Screen Time</div>
-      <div id="tvtime-list"></div>
+    <div class="stacked-cards">
+      <div class="card tvtime-card">
+        <div class="card-title">Screen Time</div>
+        <div id="tvtime-list"></div>
+      </div>
+      <div class="card ronde-card">
+        <div class="card-title">Rönde Römindör</div>
+        <div id="ronde-list"></div>
+      </div>
     </div>
 
     <div class="card status-card">
@@ -306,7 +312,8 @@
             <th>Wind</th>
             <th>Gust</th>
             <th>Humidity</th>
-            <th>Rain</th>
+            <th>Rain %</th>
+            <th>Rain mm</th>
           </tr>
         </thead>
         <tbody>
@@ -317,7 +324,8 @@
             <td class="wd-wind" id="wd-wind-now">–</td>
             <td class="wd-wind" id="wd-gust-now">–</td>
             <td id="wd-humidity-now">–</td>
-            <td id="wd-rain-now">–</td>
+            <td id="wd-rainpct-now">–</td>
+            <td id="wd-rainmm-now">–</td>
           </tr>
           <tr>
             <td class="wd-label">6h</td>
@@ -326,7 +334,8 @@
             <td class="wd-wind" id="wd-wind-6h">–</td>
             <td class="wd-wind" id="wd-gust-6h">–</td>
             <td id="wd-humidity-6h">–</td>
-            <td id="wd-rain-6h">–</td>
+            <td id="wd-rainpct-6h">–</td>
+            <td id="wd-rainmm-6h">–</td>
           </tr>
           <tr>
             <td class="wd-label">12h</td>
@@ -335,7 +344,8 @@
             <td class="wd-wind" id="wd-wind-12h">–</td>
             <td class="wd-wind" id="wd-gust-12h">–</td>
             <td id="wd-humidity-12h">–</td>
-            <td id="wd-rain-12h">–</td>
+            <td id="wd-rainpct-12h">–</td>
+            <td id="wd-rainmm-12h">–</td>
           </tr>
           <tr>
             <td class="wd-label">24h</td>
@@ -344,7 +354,8 @@
             <td class="wd-wind" id="wd-wind-24h">–</td>
             <td class="wd-wind" id="wd-gust-24h">–</td>
             <td id="wd-humidity-24h">–</td>
-            <td id="wd-rain-24h">–</td>
+            <td id="wd-rainpct-24h">–</td>
+            <td id="wd-rainmm-24h">–</td>
           </tr>
           <tr class="wd-daily-row">
             <td class="wd-label" id="wd-label-tomorrow">Tomorrow</td>
@@ -353,7 +364,8 @@
             <td class="wd-wind" id="wd-wind-tomorrow">–</td>
             <td class="wd-wind" id="wd-gust-tomorrow">–</td>
             <td id="wd-humidity-tomorrow">–</td>
-            <td id="wd-rain-tomorrow">–</td>
+            <td id="wd-rainpct-tomorrow">–</td>
+            <td id="wd-rainmm-tomorrow">–</td>
           </tr>
           <tr class="wd-daily-row">
             <td class="wd-label" id="wd-label-dayafter">Day After</td>
@@ -362,7 +374,8 @@
             <td class="wd-wind" id="wd-wind-dayafter">–</td>
             <td class="wd-wind" id="wd-gust-dayafter">–</td>
             <td id="wd-humidity-dayafter">–</td>
-            <td id="wd-rain-dayafter">–</td>
+            <td id="wd-rainpct-dayafter">–</td>
+            <td id="wd-rainmm-dayafter">–</td>
           </tr>
         </tbody>
       </table>
@@ -392,6 +405,18 @@
       <div class="history-chart-section">
         <div class="history-chart-wrap history-chart-wrap-tall"><canvas id="energy-history-chart"></canvas></div>
       </div>
+      <div class="history-chart-section hidden" id="energy-extra-section">
+        <div class="history-chart-label" id="energy-extra-label"></div>
+        <div class="history-chart-wrap"><canvas id="energy-extra-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay: Rönde Tasks -->
+  <div class="overlay hidden" id="ronde-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title" id="ronde-overlay-title">Tasks</div>
+      <div id="ronde-detail"></div>
     </div>
   </div>
 
@@ -432,7 +457,7 @@
     function scaleDashboard() {
       const dash = document.querySelector('.dashboard');
       const scaleX = window.innerWidth / 1920;
-      const scaleY = window.innerHeight / 1200;
+      const scaleY = window.innerHeight / 1120;
       const scale = Math.min(scaleX, scaleY);
       dash.style.transform = `scale(${scale})`;
     }

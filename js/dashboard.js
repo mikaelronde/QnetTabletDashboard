@@ -10,6 +10,7 @@ const CONFIG = {
   pingApiUrl: 'http://192.168.1.100/dashboard/pingapi/api/ping',
   sqlBackupUrl: 'http://192.168.1.100/dashboard/pingapi/api/sqlbackup',
   statusPollInterval: 60_000,
+  rondeStatusUrl: 'http://192.168.1.100/ronde/status.json',
 };
 
 /* ── Clock ── */
@@ -158,7 +159,8 @@ async function fetchWeather() {
       set(`wd-wind-${suffix}`, w.wind);
       set(`wd-gust-${suffix}`, `${w.gust} m/s`);
       set(`wd-humidity-${suffix}`, `${Math.round(w.humidity)}%`);
-      set(`wd-rain-${suffix}`, `${w.rainProb}% ${w.rainMm} mm`);
+      set(`wd-rainpct-${suffix}`, `${w.rainProb}%`);
+      set(`wd-rainmm-${suffix}`, `${Number(w.rainMm).toFixed(1)} mm`);
     }
 
     // Expanded view — daily summaries
@@ -171,7 +173,8 @@ async function fetchWeather() {
       set(`wd-wind-${suffix}`, `${summary.wind.toFixed(1)} m/s`);
       set(`wd-gust-${suffix}`, `${summary.gust.toFixed(1)} m/s`);
       set(`wd-humidity-${suffix}`, `${Math.round(summary.humidity)}%`);
-      set(`wd-rain-${suffix}`, `${summary.rainProb}% ${summary.rainTotal.toFixed(1)} mm`);
+      set(`wd-rainpct-${suffix}`, `${summary.rainProb}%`);
+      set(`wd-rainmm-${suffix}`, `${summary.rainTotal.toFixed(1)} mm`);
     }
 
     // Weather alert on compact card
@@ -374,7 +377,7 @@ function initPriceChart(nordpoolPrices) {
           ticks: {
             color: '#6b7a90',
             font: { size: 11 },
-            maxTicksLimit: 5,
+            maxTicksLimit: 4,
           },
           border: { display: false },
           min: 0,
@@ -644,6 +647,98 @@ function updateTvTime(children) {
 }
 
 /* ══════════════════════════════════════════════ */
+/* ── Rönde Römindör                          ── */
+/* ══════════════════════════════════════════════ */
+
+const RONDE_USERS = ['mikael', 'emma', 'agnes', 'ellie'];
+let cachedRondeData = null;
+
+async function fetchRondeStatus() {
+  try {
+    const resp = await fetch(CONFIG.rondeStatusUrl);
+    const data = await resp.json();
+    cachedRondeData = data;
+    renderRondeKpis(data);
+  } catch (err) {
+    console.error('Failed to fetch ronde status:', err);
+  }
+}
+
+function renderRondeKpis(data) {
+  const container = document.getElementById('ronde-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const today = new Date().toLocaleDateString('sv-SE');
+
+  for (const name of RONDE_USERS) {
+    const person = data[name];
+    const row = document.createElement('div');
+    row.className = 'ronde-row';
+
+    const isToday = person?.date === today ||
+      (person?.updated_at && new Date(person.updated_at).toLocaleDateString('sv-SE') === today);
+
+    if (!person || !isToday) {
+      row.innerHTML = `
+        <span class="ronde-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+        <span class="ronde-status unknown">\u2013</span>`;
+    } else {
+      const completed = person.completed || 0;
+      const total = person.total_due || 0;
+      const late = person.tasks?.filter(t => t.status === 'late').length || 0;
+      const due = person.tasks?.filter(t => t.status === 'due').length || 0;
+
+      let colorClass = 'green';
+      if (late > 0) colorClass = 'red';
+      else if (due > 0) colorClass = 'yellow';
+
+      row.innerHTML = `
+        <span class="ronde-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+        <span class="ronde-status ${colorClass}">${completed}/${total}</span>`;
+    }
+
+    row.addEventListener('click', () => showRondeDetail(name));
+    container.appendChild(row);
+  }
+}
+
+function showRondeDetail(name) {
+  const overlay = document.getElementById('ronde-overlay');
+  const title = document.getElementById('ronde-overlay-title');
+  const detail = document.getElementById('ronde-detail');
+
+  title.textContent = `${name.charAt(0).toUpperCase() + name.slice(1)} \u2014 Tasks`;
+  overlay.classList.remove('hidden');
+  detail.innerHTML = '';
+
+  const today = new Date().toLocaleDateString('sv-SE');
+  const person = cachedRondeData?.[name];
+  const isToday = person?.date === today ||
+    (person?.updated_at && new Date(person.updated_at).toLocaleDateString('sv-SE') === today);
+
+  if (!person || !isToday) {
+    detail.innerHTML = '<div style="color:var(--text-dim);font-size:1.2rem;padding:12px 0">No data for today</div>';
+    return;
+  }
+
+  for (const task of (person.tasks || [])) {
+    const row = document.createElement('div');
+    row.className = 'ronde-task-row';
+
+    let color, label;
+    if (task.status === 'completed') { color = 'var(--green)'; label = '\u2713'; }
+    else if (task.status === 'late') { color = 'var(--red)'; label = 'LATE'; }
+    else { color = 'var(--amber)'; label = 'DUE'; }
+
+    row.innerHTML = `
+      <span class="ronde-task-text" style="color:${color}">${task.text}</span>
+      <span class="ronde-task-status" style="color:${color}">${label}</span>`;
+    detail.appendChild(row);
+  }
+}
+
+/* ══════════════════════════════════════════════ */
 /* ── System Status KPIs                      ── */
 /* ══════════════════════════════════════════════ */
 
@@ -878,7 +973,7 @@ function make24hChartOptions(unit, yMin, yMax) {
   };
 }
 
-const OUTDOOR_SENSORS = ['outside', 'patio', 'playhouse', 'attic'];
+const OUTDOOR_SENSORS = ['outside', 'patio', 'playhouse', 'attic', 'pool'];
 
 /* ══════════════════════════════════════════════ */
 /* ── Temperature History (SQL-powered)       ── */
@@ -894,6 +989,7 @@ const SENSOR_ID_MAP = {
   bedroom: 151,
   playhouse: 110,
   attic: 183,
+  pool: 130,
   refrigerator: 215,
 };
 
@@ -994,7 +1090,7 @@ async function showTempHistory(sensorName, label) {
 // Map energy table row IDs to tblPowerProduction column or tblPowerConsumption sensor
 const ENERGY_ROW_MAP = {
   'energy-prod': { source: 'production', field: 'productionW', label: 'Solar Production', unit: 'kW', toKw: true },
-  'energy-batt': { source: 'production', field: 'batteryW', label: 'Battery', unit: 'kW', toKw: true },
+  'energy-batt': { source: 'production', field: 'batteryW', label: 'Battery', unit: 'kW', toKw: true, allowNeg: true },
   'energy-grid-in': { source: 'production', field: 'gridW', label: 'From Grid', unit: 'kW', toKw: true, filter: v => Math.max(0, v) },
   'energy-grid-out': { source: 'production', field: 'gridW', label: 'To Grid', unit: 'kW', toKw: true, filter: v => Math.max(0, -v) },
   'energy-house': { source: 'production', field: 'houseW', label: 'House Total', unit: 'kW', toKw: true },
@@ -1003,6 +1099,7 @@ const ENERGY_ROW_MAP = {
 };
 
 let energyHistoryChart = null;
+let energyExtraChart = null;
 
 async function showEnergyHistory(rowKey) {
   const mapping = ENERGY_ROW_MAP[rowKey];
@@ -1011,11 +1108,16 @@ async function showEnergyHistory(rowKey) {
   const overlay = document.getElementById('energy-history-overlay');
   const title = document.getElementById('energy-history-title');
   const canvas = document.getElementById('energy-history-chart');
+  const extraSection = document.getElementById('energy-extra-section');
+  const extraCanvas = document.getElementById('energy-extra-chart');
+  const extraLabel = document.getElementById('energy-extra-label');
 
   title.textContent = `${mapping.label} \u2014 Last 24 Hours`;
   overlay.classList.remove('hidden');
+  extraSection.classList.add('hidden');
 
   if (energyHistoryChart) { energyHistoryChart.destroy(); energyHistoryChart = null; }
+  if (energyExtraChart) { energyExtraChart.destroy(); energyExtraChart = null; }
 
   try {
     let labels, values, unit;
@@ -1051,8 +1153,35 @@ async function showEnergyHistory(rowKey) {
           borderWidth: 2,
         }]
       },
-      options: make24hChartOptions(unit, 0, mapping.toKw ? 1 : undefined),
+      options: make24hChartOptions(unit, mapping.allowNeg ? undefined : 0, mapping.toKw ? 1 : undefined),
     });
+
+    // Battery: add percentage chart below
+    if (rowKey === 'energy-batt' && mapping.source === 'production') {
+      const data = await fetch(`${CONFIG.apiBaseUrl}/api/history/power?hours=24`).then(r => r.json());
+      const pctLabels = data.map(d => parseLocalTime(d.datDate).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }));
+      const pctValues = data.map(d => Math.round(d.batteryPct));
+
+      extraSection.classList.remove('hidden');
+      extraLabel.textContent = 'Battery Level';
+
+      energyExtraChart = new Chart(extraCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: pctLabels,
+          datasets: [{
+            data: pctValues,
+            borderColor: 'rgba(52,211,153,0.8)',
+            backgroundColor: 'rgba(52,211,153,0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            borderWidth: 2,
+          }]
+        },
+        options: make24hChartOptions('%', 0, 100),
+      });
+    }
   } catch (err) {
     console.error('Failed to fetch energy history:', err);
   }
@@ -1089,6 +1218,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (CONFIG.homeDataUrl) {
     setInterval(fetchHomeData, CONFIG.pollInterval);
   }
+
+  // Pool card click → temperature history
+  document.querySelector('.pool-card')?.addEventListener('click', () => {
+    showTempHistory('pool', 'Pool');
+  });
 
   // Energy row click handlers
   document.querySelectorAll('.energy-table tbody tr').forEach(row => {
@@ -1137,7 +1271,15 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchNetworkStatus();
   fetchHealthCheck();
   fetchSqlBackup();
+  fetchRondeStatus();
   setInterval(fetchNetworkStatus, CONFIG.statusPollInterval);
   setInterval(fetchHealthCheck, CONFIG.statusPollInterval);
   setInterval(fetchSqlBackup, CONFIG.statusPollInterval);
+  setInterval(fetchRondeStatus, CONFIG.statusPollInterval);
+
+  // Rönde overlay close
+  document.getElementById('ronde-overlay').addEventListener('click', () => {
+    document.getElementById('ronde-overlay').classList.add('hidden');
+  });
+  document.getElementById('ronde-overlay').querySelector('.overlay-panel').addEventListener('click', e => e.stopPropagation());
 });
