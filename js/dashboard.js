@@ -11,6 +11,8 @@ const CONFIG = {
   sqlBackupUrl: 'http://192.168.1.100/dashboard/pingapi/api/sqlbackup',
   statusPollInterval: 60_000,
   rondeStatusUrl: 'http://192.168.1.100/ronde/status.json',
+  sseUrl: 'http://192.168.1.100:5480/',
+  cameraAlertDuration: 60_000,
 };
 
 /* ── Clock ── */
@@ -1282,4 +1284,49 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ronde-overlay').classList.add('hidden');
   });
   document.getElementById('ronde-overlay').querySelector('.overlay-panel').addEventListener('click', e => e.stopPropagation());
+
+  // Camera alert overlay close
+  document.getElementById('camera-overlay').addEventListener('click', () => {
+    document.getElementById('camera-overlay').classList.add('hidden');
+  });
+  document.getElementById('camera-overlay').querySelector('.overlay-panel').addEventListener('click', e => e.stopPropagation());
+
+  // SSE: Frigate camera alerts
+  initCameraSSE();
 });
+
+let cameraAlertTimer = null;
+
+function initCameraSSE() {
+  const sse = new EventSource(CONFIG.sseUrl);
+
+  sse.addEventListener('frigate_alert', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      showCameraAlert(data);
+    } catch (err) {
+      console.error('Failed to parse frigate_alert:', err);
+    }
+  });
+
+  sse.onerror = () => {
+    console.warn('SSE connection lost, will auto-reconnect');
+  };
+}
+
+function showCameraAlert(data) {
+  const overlay = document.getElementById('camera-overlay');
+  const title = document.getElementById('camera-overlay-title');
+  const img = document.getElementById('camera-snapshot');
+
+  const cameraName = data.camera?.charAt(0).toUpperCase() + data.camera?.slice(1) || 'Camera';
+  title.textContent = cameraName;
+  img.src = data.snapshotUrl;
+  overlay.classList.remove('hidden');
+
+  // Auto-dismiss after configured duration
+  if (cameraAlertTimer) clearTimeout(cameraAlertTimer);
+  cameraAlertTimer = setTimeout(() => {
+    overlay.classList.add('hidden');
+  }, CONFIG.cameraAlertDuration);
+}
