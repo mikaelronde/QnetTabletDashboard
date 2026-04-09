@@ -846,6 +846,28 @@ html, body {
   object-fit: contain;
 }
 
+/* ── App launcher button (bottom-left) ── */
+.launcher-btn {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  width: 48px;
+  height: 48px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 12px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.launcher-btn:hover {
+  color: var(--text);
+  background: var(--surface-hi);
+}
+
 /* ── Utilities ── */
 .status-connected    { color: var(--green); }
 .status-disconnected { color: var(--text-dim); }
