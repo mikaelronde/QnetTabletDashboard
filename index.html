@@ -61,13 +61,9 @@
       </div>
     </div>
 
-    <div class="card pool-card">
-      <div class="card-title">Pool</div>
-      <div class="pool-status" id="pool-status">Idle</div>
-      <div class="pool-detail">
-        <span id="pool-time">0h 0m</span>
-        <span class="pool-temp" id="pool-temp">–</span>
-      </div>
+    <div class="card ronde-card-r1">
+      <div class="card-title">Rönde Römindör</div>
+      <div id="ronde-list"></div>
     </div>
 
     <!-- Row 2 -->
@@ -87,15 +83,19 @@
           <span class="forecast-icon" id="weather-icon-6h">–</span>
           <span class="forecast-temp" id="weather-temp-6h">–</span>
         </div>
-        <div class="forecast-item">
-          <span class="forecast-label" id="forecast-label-tomorrow">–</span>
-          <span class="forecast-icon" id="weather-icon-tomorrow">–</span>
-          <span class="forecast-temp" id="weather-temp-tomorrow">–</span>
+        <div class="forecast-day">
+          <span class="forecast-day-label" id="forecast-label-tomorrow">–</span>
+          <span class="forecast-day-icon" id="weather-icon-tomorrow">–</span>
+          <span class="forecast-day-temp" id="weather-temp-tomorrow">–</span>
+          <span class="forecast-day-detail" id="weather-wind-tomorrow">–</span>
+          <span class="forecast-day-detail" id="weather-rain-tomorrow">–</span>
         </div>
-        <div class="forecast-item">
-          <span class="forecast-label" id="forecast-label-dayafter">–</span>
-          <span class="forecast-icon" id="weather-icon-dayafter">–</span>
-          <span class="forecast-temp" id="weather-temp-dayafter">–</span>
+        <div class="forecast-day">
+          <span class="forecast-day-label" id="forecast-label-dayafter">–</span>
+          <span class="forecast-day-icon" id="weather-icon-dayafter">–</span>
+          <span class="forecast-day-temp" id="weather-temp-dayafter">–</span>
+          <span class="forecast-day-detail" id="weather-wind-dayafter">–</span>
+          <span class="forecast-day-detail" id="weather-rain-dayafter">–</span>
         </div>
       </div>
     </div>
@@ -139,7 +139,7 @@
     <div class="card chart-card">
       <div class="chart-header">
         <span>Energy Price Today</span>
-        <span class="chart-prices"><span class="chart-current" id="price-current">– öre</span> <span class="chart-max" id="price-max"></span></span>
+        <span class="chart-prices"><span class="chart-current" id="price-current">–</span> <span class="chart-max" id="price-max"></span></span>
       </div>
       <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
     </div>
@@ -149,37 +149,19 @@
         <div class="card-title">Screen Time</div>
         <div id="tvtime-list"></div>
       </div>
-      <div class="card ronde-card">
-        <div class="card-title">Rönde Römindör</div>
-        <div id="ronde-list"></div>
+      <div class="card funds-card">
+        <div class="card-title">Funds</div>
+        <div class="funds-row">
+          <span class="funds-label">Last Day</span>
+          <span class="funds-value positive" id="funds-daily">–</span>
+        </div>
+        <div class="funds-row">
+          <span class="funds-label">Since Start</span>
+          <span class="funds-value positive" id="funds-total">–</span>
+        </div>
       </div>
     </div>
 
-    <div class="card status-card">
-      <div class="status-title">System Status</div>
-      <div class="kpi-grid">
-        <div class="kpi-item" id="kpi-network" data-overlay="network-overlay">
-          <span class="kpi-dot" id="kpi-dot-network"></span>
-          <span class="kpi-label">Network</span>
-          <span class="kpi-val" id="kpi-val-network">–</span>
-        </div>
-        <div class="kpi-item" id="kpi-integrations" data-overlay="integrations-overlay">
-          <span class="kpi-dot" id="kpi-dot-integrations"></span>
-          <span class="kpi-label">Integrations</span>
-          <span class="kpi-val" id="kpi-val-integrations">–</span>
-        </div>
-        <div class="kpi-item" id="kpi-sensors" data-overlay="sensors-overlay">
-          <span class="kpi-dot" id="kpi-dot-sensors"></span>
-          <span class="kpi-label">Sensors</span>
-          <span class="kpi-val" id="kpi-val-sensors">–</span>
-        </div>
-        <div class="kpi-item" id="kpi-backup" data-overlay="backup-overlay">
-          <span class="kpi-dot" id="kpi-dot-backup"></span>
-          <span class="kpi-label">SQL Backup</span>
-          <span class="kpi-val" id="kpi-val-backup">–</span>
-        </div>
-      </div>
-    </div>
 
     <div class="card ukraine-card">
       <div class="ukraine-title">Ukraine</div>
@@ -212,15 +194,44 @@
     </div>
 
     <!-- Row 3 -->
-    <div class="card funds-card">
-      <div class="card-title">Funds</div>
-      <div class="funds-row">
-        <span class="funds-label">Last Day</span>
-        <span class="funds-value positive" id="funds-daily">–</span>
+    <div class="card cameras-card">
+      <div class="card-title">Cameras</div>
+      <div class="camera-grid" id="camera-grid"></div>
+    </div>
+
+    <div class="pool-status-stack">
+      <div class="card pool-card">
+        <div class="card-title">Pool</div>
+        <div class="pool-status" id="pool-status">Idle</div>
+        <div class="pool-detail">
+          <span id="pool-time">0h 0m</span>
+          <span class="pool-temp" id="pool-temp">–</span>
+        </div>
       </div>
-      <div class="funds-row">
-        <span class="funds-label">Since Start</span>
-        <span class="funds-value positive" id="funds-total">–</span>
+      <div class="card status-card">
+        <div class="card-title">System Status</div>
+        <div class="kpi-grid">
+          <div class="kpi-item" id="kpi-network" data-overlay="network-overlay">
+            <span class="kpi-dot" id="kpi-dot-network"></span>
+            <span class="kpi-label">Network</span>
+            <span class="kpi-val" id="kpi-val-network">–</span>
+          </div>
+          <div class="kpi-item" id="kpi-integrations" data-overlay="integrations-overlay">
+            <span class="kpi-dot" id="kpi-dot-integrations"></span>
+            <span class="kpi-label">Integrations</span>
+            <span class="kpi-val" id="kpi-val-integrations">–</span>
+          </div>
+          <div class="kpi-item" id="kpi-sensors" data-overlay="sensors-overlay">
+            <span class="kpi-dot" id="kpi-dot-sensors"></span>
+            <span class="kpi-label">Sensors</span>
+            <span class="kpi-val" id="kpi-val-sensors">–</span>
+          </div>
+          <div class="kpi-item" id="kpi-backup" data-overlay="backup-overlay">
+            <span class="kpi-dot" id="kpi-dot-backup"></span>
+            <span class="kpi-label">SQL Backup</span>
+            <span class="kpi-val" id="kpi-val-backup">–</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -299,86 +310,20 @@
     </div>
   </div>
 
-  <!-- Overlay: Weather Detail -->
+  <!-- Overlay: Weather Hourly -->
   <div class="overlay hidden" id="weather-overlay">
-    <div class="overlay-panel">
-      <div class="overlay-title">Weather Forecast</div>
-      <table class="weather-detail-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th></th>
-            <th>Temp</th>
-            <th>Wind</th>
-            <th>Gust</th>
-            <th>Humidity</th>
-            <th>Rain %</th>
-            <th>Rain mm</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="wd-label">Now</td>
-            <td class="wd-icon" id="wd-icon-now">–</td>
-            <td class="wd-temp" id="wd-temp-now">–</td>
-            <td class="wd-wind" id="wd-wind-now">–</td>
-            <td class="wd-wind" id="wd-gust-now">–</td>
-            <td id="wd-humidity-now">–</td>
-            <td id="wd-rainpct-now">–</td>
-            <td id="wd-rainmm-now">–</td>
-          </tr>
-          <tr>
-            <td class="wd-label">6h</td>
-            <td class="wd-icon" id="wd-icon-6h">–</td>
-            <td class="wd-temp" id="wd-temp-6h">–</td>
-            <td class="wd-wind" id="wd-wind-6h">–</td>
-            <td class="wd-wind" id="wd-gust-6h">–</td>
-            <td id="wd-humidity-6h">–</td>
-            <td id="wd-rainpct-6h">–</td>
-            <td id="wd-rainmm-6h">–</td>
-          </tr>
-          <tr>
-            <td class="wd-label">12h</td>
-            <td class="wd-icon" id="wd-icon-12h">–</td>
-            <td class="wd-temp" id="wd-temp-12h">–</td>
-            <td class="wd-wind" id="wd-wind-12h">–</td>
-            <td class="wd-wind" id="wd-gust-12h">–</td>
-            <td id="wd-humidity-12h">–</td>
-            <td id="wd-rainpct-12h">–</td>
-            <td id="wd-rainmm-12h">–</td>
-          </tr>
-          <tr>
-            <td class="wd-label">24h</td>
-            <td class="wd-icon" id="wd-icon-24h">–</td>
-            <td class="wd-temp" id="wd-temp-24h">–</td>
-            <td class="wd-wind" id="wd-wind-24h">–</td>
-            <td class="wd-wind" id="wd-gust-24h">–</td>
-            <td id="wd-humidity-24h">–</td>
-            <td id="wd-rainpct-24h">–</td>
-            <td id="wd-rainmm-24h">–</td>
-          </tr>
-          <tr class="wd-daily-row">
-            <td class="wd-label" id="wd-label-tomorrow">Tomorrow</td>
-            <td class="wd-icon" id="wd-icon-tomorrow">–</td>
-            <td class="wd-temp" id="wd-temp-tomorrow">–</td>
-            <td class="wd-wind" id="wd-wind-tomorrow">–</td>
-            <td class="wd-wind" id="wd-gust-tomorrow">–</td>
-            <td id="wd-humidity-tomorrow">–</td>
-            <td id="wd-rainpct-tomorrow">–</td>
-            <td id="wd-rainmm-tomorrow">–</td>
-          </tr>
-          <tr class="wd-daily-row">
-            <td class="wd-label" id="wd-label-dayafter">Day After</td>
-            <td class="wd-icon" id="wd-icon-dayafter">–</td>
-            <td class="wd-temp" id="wd-temp-dayafter">–</td>
-            <td class="wd-wind" id="wd-wind-dayafter">–</td>
-            <td class="wd-wind" id="wd-gust-dayafter">–</td>
-            <td id="wd-humidity-dayafter">–</td>
-            <td id="wd-rainpct-dayafter">–</td>
-            <td id="wd-rainmm-dayafter">–</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="overlay-panel overlay-panel-wide">
+      <div class="overlay-title">Hourly Forecast</div>
+      <div class="weather-hourly-grid">
+        <div class="weather-hourly-col">
+          <div class="weather-hourly-day" id="weather-hourly-today-label">Today</div>
+          <div id="weather-hourly-today"></div>
+        </div>
+        <div class="weather-hourly-col">
+          <div class="weather-hourly-day" id="weather-hourly-tomorrow-label">Tomorrow</div>
+          <div id="weather-hourly-tomorrow"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -420,11 +365,14 @@
     </div>
   </div>
 
-  <!-- Overlay: Camera Alert -->
+  <!-- Overlay: Camera Stream -->
   <div class="overlay hidden" id="camera-overlay">
     <div class="overlay-panel overlay-panel-camera">
       <div class="overlay-title" id="camera-overlay-title">Front Door</div>
-      <img id="camera-snapshot" class="camera-snapshot" alt="Camera snapshot">
+      <div class="camera-container">
+        <img id="camera-thumbnail" class="camera-thumbnail" alt="">
+        <video id="camera-stream" class="camera-stream" autoplay muted playsinline></video>
+      </div>
     </div>
   </div>
 
@@ -460,20 +408,8 @@
     </div>
   </div>
 
-  <div class="launcher-btn" id="launcher-btn">
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-    </svg>
-  </div>
-
   <script>
-    // App launcher tap zone
-    document.getElementById('launcher-btn').addEventListener('click', () => {
-      window.location.href = 'fully://launcher';
-    });
-
-    // Scale the fixed 1920×1200 layout to fit any screen
+    // Scale the fixed 1920×1120 layout to fit any screen
     function scaleDashboard() {
       const dash = document.querySelector('.dashboard');
       const scaleX = window.innerWidth / 1920;

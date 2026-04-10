@@ -13,6 +13,15 @@ const CONFIG = {
   rondeStatusUrl: 'http://192.168.1.100/ronde/status.json',
   sseUrl: 'http://192.168.1.100:5480/',
   cameraAlertDuration: 60_000,
+  cameras: [
+    { name: 'Front', src: 'front_sub' },
+    { name: 'Back', src: 'back_sub' },
+    { name: 'Patio', src: 'patio_sub' },
+    { name: 'Parking', src: 'parking_sub' },
+    { name: 'Pool', src: 'pool_sub' },
+    { name: 'Garage', src: 'garage_sub' },
+  ],
+  go2rtcBase: 'http://192.168.1.140:1984',
 };
 
 /* ── Clock ── */
@@ -150,36 +159,8 @@ async function fetchWeather() {
       document.getElementById('wind-dir').textContent = degToCardinal(wd);
     }
 
-    // Expanded view — hourly entries
-    const entries = { now: nowEntry, '6h': entry6h, '12h': entry12h, '24h': entry24h };
-    for (const [suffix, entry] of Object.entries(entries)) {
-      const w = getWeatherFromEntry(entry);
-      if (!w) continue;
-      const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
-      set(`wd-icon-${suffix}`, w.icon);
-      set(`wd-temp-${suffix}`, `${Math.round(w.temp)}\u00B0C`);
-      set(`wd-wind-${suffix}`, w.wind);
-      set(`wd-gust-${suffix}`, `${w.gust} m/s`);
-      set(`wd-humidity-${suffix}`, `${Math.round(w.humidity)}%`);
-      set(`wd-rainpct-${suffix}`, `${w.rainProb}%`);
-      set(`wd-rainmm-${suffix}`, `${Number(w.rainMm).toFixed(1)} mm`);
-    }
-
-    // Expanded view — daily summaries
-    for (const [suffix, summary] of [['tomorrow', tomorrowSummary], ['dayafter', dayAfterSummary]]) {
-      if (!summary) continue;
-      const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
-      const w = WSYMB2[summary.symbol] || { icon: '\u2753' };
-      set(`wd-icon-${suffix}`, w.icon);
-      set(`wd-temp-${suffix}`, `${Math.round(summary.minTemp)}\u2013${Math.round(summary.maxTemp)}\u00B0C`);
-      set(`wd-wind-${suffix}`, `${summary.wind.toFixed(1)} m/s`);
-      set(`wd-gust-${suffix}`, `${summary.gust.toFixed(1)} m/s`);
-      set(`wd-humidity-${suffix}`, `${Math.round(summary.humidity)}%`);
-      set(`wd-rainpct-${suffix}`, `${summary.rainProb}%`);
-      set(`wd-rainmm-${suffix}`, `${summary.rainTotal.toFixed(1)} mm`);
-    }
-
     // Weather alert on compact card
+    cachedWeatherTimeSeries = data.timeSeries;
     updateWeatherAlert(nowEntry, data.timeSeries);
   } catch (err) {
     console.error('Failed to fetch SMHI weather:', err);
@@ -210,12 +191,55 @@ function applyForecastEntry(entry, suffix) {
 function applyDaySummaryCompact(summary, suffix, date) {
   if (!summary) return;
   const w = WSYMB2[summary.symbol] || { icon: '\u2753' };
-  const iconEl = document.getElementById(`weather-icon-${suffix}`);
-  const tempEl = document.getElementById(`weather-temp-${suffix}`);
-  const labelEl = document.getElementById(`forecast-label-${suffix}`);
-  if (iconEl) iconEl.textContent = w.icon;
-  if (tempEl) tempEl.textContent = `${Math.round(summary.minTemp)}\u2013${Math.round(summary.maxTemp)}\u00B0C`;
-  if (labelEl) labelEl.textContent = date.toLocaleDateString('en-GB', { weekday: 'short' });
+  const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+  set(`forecast-label-${suffix}`, date.toLocaleDateString('en-GB', { weekday: 'short' }));
+  set(`weather-icon-${suffix}`, w.icon);
+  set(`weather-temp-${suffix}`, `${Math.round(summary.minTemp)}\u2013${Math.round(summary.maxTemp)}\u00B0C`);
+  set(`weather-wind-${suffix}`, `${summary.wind.toFixed(1)} m/s`);
+  set(`weather-rain-${suffix}`, summary.rainTotal > 0 ? `${summary.rainTotal.toFixed(1)} mm` : '');
+}
+
+let cachedWeatherTimeSeries = null;
+
+function renderWeatherHourly() {
+  if (!cachedWeatherTimeSeries) return;
+
+  const byDate = groupEntriesByDate(cachedWeatherTimeSeries);
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const fmtKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+  const todayEntries = byDate[fmtKey(today)] || [];
+  const tomorrowEntries = byDate[fmtKey(tomorrow)] || [];
+
+  const todayLabel = document.getElementById('weather-hourly-today-label');
+  const tomorrowLabel = document.getElementById('weather-hourly-tomorrow-label');
+  if (todayLabel) todayLabel.textContent = today.toLocaleDateString('en-GB', { weekday: 'long' });
+  if (tomorrowLabel) tomorrowLabel.textContent = tomorrow.toLocaleDateString('en-GB', { weekday: 'long' });
+
+  renderHourlyColumn('weather-hourly-today', todayEntries);
+  renderHourlyColumn('weather-hourly-tomorrow', tomorrowEntries);
+}
+
+function renderHourlyColumn(containerId, entries) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (const entry of entries) {
+    const d = entry.data;
+    const hour = new Date(entry.time).getHours();
+    const w = WSYMB2[d.symbol_code] || { icon: '\u2753' };
+    const row = document.createElement('div');
+    row.className = 'weather-hour-row';
+    row.innerHTML = `
+      <span class="weather-hour-time">${String(hour).padStart(2,'0')}:00</span>
+      <span class="weather-hour-icon">${w.icon}</span>
+      <span class="weather-hour-temp">${Math.round(d.air_temperature)}\u00B0C</span>
+      <span class="weather-hour-wind">${d.wind_speed} m/s</span>
+      <span class="weather-hour-rain">${d.precipitation_amount_mean > 0 ? d.precipitation_amount_mean.toFixed(1) + ' mm' : ''}</span>`;
+    container.appendChild(row);
+  }
 }
 
 function updateWeatherAlert(nowEntry, timeSeries) {
@@ -267,7 +291,10 @@ document.getElementById('weather-overlay').addEventListener('click', () => toggl
 document.querySelectorAll('.overlay-panel').forEach(p => p.addEventListener('click', e => e.stopPropagation()));
 
 /* ── Weather toggle ── */
-document.getElementById('weather-card').addEventListener('click', () => toggleOverlay('weather-overlay'));
+document.getElementById('weather-card').addEventListener('click', () => {
+  renderWeatherHourly();
+  toggleOverlay('weather-overlay');
+});
 
 /* ── Temperatures: click individual rows for history ── */
 document.querySelectorAll('.temps-card .temp-row-clickable').forEach(row => {
@@ -475,10 +502,10 @@ function updateDashboard(data) {
   // Energy cost
   if (data.energyCost) {
     document.getElementById('price-current').textContent =
-      `${data.energyCost.current} \u00F6re`;
+      `${data.energyCost.current}`;
     if (data.energyCost.maxToday) {
-      document.getElementById('price-max').textContent =
-        `max ${data.energyCost.maxToday}`;
+      document.getElementById('price-max').innerHTML =
+        `max <span class="chart-max-val">${data.energyCost.maxToday}</span>`;
     }
   }
 
@@ -1221,6 +1248,60 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchHomeData, CONFIG.pollInterval);
   }
 
+  // Camera grid
+  const camGrid = document.getElementById('camera-grid');
+  if (camGrid) {
+    for (const cam of CONFIG.cameras) {
+      const thumb = document.createElement('div');
+      thumb.className = 'camera-thumb';
+      const img = document.createElement('img');
+      img.alt = cam.name;
+      img.onload = () => img.classList.add('loaded');
+      img.onerror = () => img.classList.remove('loaded');
+      img.src = `${CONFIG.go2rtcBase}/api/frame.jpeg?src=${cam.src}`;
+      thumb.appendChild(img);
+      const label = document.createElement('div');
+      label.className = 'camera-thumb-label';
+      label.textContent = cam.name;
+      thumb.appendChild(label);
+      thumb.addEventListener('click', () => {
+        showCameraAlert({
+          camera: cam.name.toLowerCase(),
+          stream: `${CONFIG.go2rtcBase}/api/stream.mp4?src=${cam.src}`,
+        });
+      });
+      camGrid.appendChild(thumb);
+    }
+    // Refresh thumbnails every 30s
+    setInterval(() => {
+      camGrid.querySelectorAll('.camera-thumb img').forEach((img, i) => {
+        const newImg = new Image();
+        newImg.onload = () => { img.src = newImg.src; img.classList.add('loaded'); };
+        newImg.src = `${CONFIG.go2rtcBase}/api/frame.jpeg?src=${CONFIG.cameras[i].src}&t=${Date.now()}`;
+      });
+    }, 30_000);
+  }
+
+  // TODO: TEMP test trigger — remove after testing
+  // Click clock once = preload, click again = show alert
+  let testClickCount = 0;
+  document.querySelector('.clock-card').addEventListener('click', () => {
+    testClickCount++;
+    const testData = {
+      camera: 'front',
+      eventId: 'test',
+      thumbnail: 'http://192.168.1.140:5000/api/events/test/thumbnail.jpg',
+      stream: 'http://192.168.1.140:1984/api/stream.mp4?src=front_sub',
+    };
+    if (testClickCount % 2 === 1) {
+      console.log('TEST: preloading stream...');
+      preloadCameraStream(testData);
+    } else {
+      console.log('TEST: showing alert...');
+      showCameraAlert(testData);
+    }
+  });
+
   // Pool card click → temperature history
   document.querySelector('.pool-card')?.addEventListener('click', () => {
     showTempHistory('pool', 'Pool');
@@ -1287,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Camera alert overlay close
   document.getElementById('camera-overlay').addEventListener('click', () => {
-    document.getElementById('camera-overlay').classList.add('hidden');
+    closeCameraOverlay();
   });
   document.getElementById('camera-overlay').querySelector('.overlay-panel').addEventListener('click', e => e.stopPropagation());
 
@@ -1296,6 +1377,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let cameraAlertTimer = null;
+let cameraPreloadTimer = null;
+let cameraStreamReady = false;
 
 function initCameraSSE() {
   const sse = new EventSource(CONFIG.sseUrl);
@@ -1303,7 +1386,11 @@ function initCameraSSE() {
   sse.addEventListener('frigate_alert', (e) => {
     try {
       const data = JSON.parse(e.data);
-      showCameraAlert(data);
+      if (data.action === 'preload') {
+        preloadCameraStream(data);
+      } else if (data.action === 'alert') {
+        showCameraAlert(data);
+      }
     } catch (err) {
       console.error('Failed to parse frigate_alert:', err);
     }
@@ -1314,19 +1401,92 @@ function initCameraSSE() {
   };
 }
 
+function preloadCameraStream(data) {
+  const video = document.getElementById('camera-stream');
+  if (!data.stream) return;
+
+  cameraStreamReady = false;
+  video.classList.remove('live');
+
+  video.src = data.stream;
+  video.play().catch(() => {});
+
+  video.onplaying = () => {
+    cameraStreamReady = true;
+    const overlay = document.getElementById('camera-overlay');
+    if (!overlay.classList.contains('hidden')) {
+      video.classList.add('live');
+      document.getElementById('camera-thumbnail').classList.add('hidden-fade');
+    }
+  };
+
+  // Tear down if no alert within 60s
+  if (cameraPreloadTimer) clearTimeout(cameraPreloadTimer);
+  cameraPreloadTimer = setTimeout(() => {
+    tearDownCamera();
+  }, 60_000);
+}
+
 function showCameraAlert(data) {
+  if (!data.stream) return;
+
   const overlay = document.getElementById('camera-overlay');
   const title = document.getElementById('camera-overlay-title');
-  const img = document.getElementById('camera-snapshot');
+  const video = document.getElementById('camera-stream');
+  const thumbnail = document.getElementById('camera-thumbnail');
 
-  const cameraName = data.camera?.charAt(0).toUpperCase() + data.camera?.slice(1) || 'Camera';
-  title.textContent = cameraName;
-  img.src = data.snapshotUrl;
+  const camera = data.camera || 'front';
+  title.textContent = camera.charAt(0).toUpperCase() + camera.slice(1);
+
+  // Show thumbnail immediately (only for MQTT alerts with thumbnail URL)
+  if (data.thumbnail) {
+    thumbnail.src = data.thumbnail;
+    thumbnail.classList.remove('hidden-fade');
+  } else {
+    thumbnail.src = '';
+    thumbnail.classList.add('hidden-fade');
+  }
+
+  // If stream already preloaded and playing, swap instantly
+  if (cameraStreamReady) {
+    video.classList.add('live');
+    thumbnail.classList.add('hidden-fade');
+  } else {
+    video.classList.remove('live');
+    video.src = data.stream;
+    video.play().catch(() => {});
+    video.onplaying = () => {
+      cameraStreamReady = true;
+      video.classList.add('live');
+      thumbnail.classList.add('hidden-fade');
+    };
+  }
+
   overlay.classList.remove('hidden');
 
-  // Auto-dismiss after configured duration
+  // Auto-dismiss after 60s
   if (cameraAlertTimer) clearTimeout(cameraAlertTimer);
   cameraAlertTimer = setTimeout(() => {
-    overlay.classList.add('hidden');
+    closeCameraOverlay();
   }, CONFIG.cameraAlertDuration);
+}
+
+function tearDownCamera() {
+  const video = document.getElementById('camera-stream');
+  video.pause();
+  video.src = '';
+  video.classList.remove('live');
+  video.onplaying = null;
+  cameraStreamReady = false;
+}
+
+function closeCameraOverlay() {
+  const overlay = document.getElementById('camera-overlay');
+  const thumbnail = document.getElementById('camera-thumbnail');
+  overlay.classList.add('hidden');
+  tearDownCamera();
+  thumbnail.src = '';
+  thumbnail.classList.remove('hidden-fade');
+  if (cameraPreloadTimer) clearTimeout(cameraPreloadTimer);
+  if (cameraAlertTimer) clearTimeout(cameraAlertTimer);
 }

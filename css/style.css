@@ -32,13 +32,14 @@ html, body {
 /* ── Dashboard Grid ── */
 .dashboard {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1.2fr 0.8fr 1fr;
+  grid-template-columns: 1.2fr 1fr 1.1fr 0.8fr 1fr;
   grid-template-rows: 0.75fr 1.3fr 1.05fr;
   gap: 10px;
   padding: 10px;
   width: 1920px;
   height: 1120px;
   transform-origin: top left;
+  position: relative;
 }
 
 /* ── Card Base ── */
@@ -109,11 +110,11 @@ html, body {
   padding: 6px 0;
 }
 
-.door-label { font-size: 1.6rem; font-weight: 400; color: var(--text-dim); }
+.door-label { font-size: 1.7rem; font-weight: 400; color: var(--text-dim); }
 
 .door-status {
   font-family: var(--mono);
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -184,22 +185,37 @@ html, body {
 }
 
 /* ── Pool ── */
-.pool-card {
+.ronde-card-r1 {
   grid-row: 1;
   grid-column: 4;
+}
+
+.pool-status-stack {
+  grid-row: 3;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pool-status-stack .card {
+  padding: 10px 16px;
+}
+
+.pool-card {
   cursor: pointer;
 }
 
 .pool-status {
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .pool-detail {
   display: flex;
-  gap: 24px;
-  font-size: 1.5rem;
+  gap: 16px;
+  font-size: 1.2rem;
   color: var(--text-dim);
 }
 
@@ -258,6 +274,23 @@ html, body {
 
 .forecast-temp { color: var(--text); font-weight: 500; }
 
+.forecast-day {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.3rem;
+}
+
+.forecast-day-label {
+  color: var(--text-dim);
+  min-width: 38px;
+  font-weight: 500;
+}
+
+.forecast-day-icon { font-size: 1.4rem; }
+.forecast-day-temp { color: var(--text); font-weight: 500; min-width: 80px; }
+.forecast-day-detail { color: var(--text-dim); font-size: 1.1rem; }
+
 /* ── Overlay popups ── */
 .overlay {
   position: fixed;
@@ -277,7 +310,7 @@ html, body {
   padding: 32px 42px;
   min-width: 400px;
   max-width: 90vw;
-  max-height: 80vh;
+  max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
@@ -368,10 +401,10 @@ html, body {
   line-height: 1.45;
 }
 
-.temp-label { font-size: 1.1rem; color: var(--text-dim); }
+.temp-label { font-size: 1rem; color: var(--text-dim); }
 .temp-value {
   font-family: var(--mono);
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 500;
 }
 
@@ -413,6 +446,11 @@ html, body {
   color: var(--text-dim);
 }
 
+.chart-max .chart-max-val {
+  color: var(--text);
+  font-size: 1.3rem;
+}
+
 .chart-wrap {
   flex: 1;
   position: relative;
@@ -427,10 +465,14 @@ html, body {
 }
 
 /* ── System Status ── */
-.status-card {
+.cameras-card {
   grid-row: 3;
   grid-column: 1;
-  padding: 18px;
+  padding: 8px 14px;
+}
+
+.status-card {
+  padding: 12px 16px;
   gap: 8px;
 }
 
@@ -549,13 +591,13 @@ html, body {
 
 .ukraine-value {
   font-family: var(--mono);
-  font-size: 1.7rem;
+  font-size: 2rem;
   font-weight: 500;
   color: var(--text);
 }
 
 .ukraine-label {
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 500;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -565,22 +607,32 @@ html, body {
 
 /* ── Funds ── */
 .funds-card {
-  grid-row: 1;
-  grid-column: 5;
+  flex: 1;
 }
 
 .funds-row {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  max-width: 280px;
-  padding: 8px 0;
+  max-width: 260px;
+  padding: 6px 0;
+}
+
+.funds-cols {
+  display: flex;
+  gap: 20px;
+}
+
+.funds-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .funds-label { font-size: 1.4rem; color: var(--text-dim); }
 .funds-value {
   font-family: var(--mono);
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   font-weight: 500;
 }
 .funds-value.positive { color: var(--green); }
@@ -589,7 +641,8 @@ html, body {
 /* ── Energy Table ── */
 .energy-card {
   grid-row: 3;
-  grid-column: 2 / 4;
+  grid-column: 3 / 5;
+  padding: 10px 20px;
   padding: 14px 24px;
 }
 
@@ -651,8 +704,8 @@ html, body {
 
 /* ── Earnings ── */
 .earnings-card {
-  grid-row: 3;
-  grid-column: 4;
+  grid-row: 1;
+  grid-column: 5;
   gap: 8px;
 }
 
@@ -664,10 +717,10 @@ html, body {
   padding: 8px 0;
 }
 
-.earnings-label { font-size: 1.4rem; color: var(--text-dim); }
+.earnings-label { font-size: 1.5rem; color: var(--text-dim); }
 .earnings-value {
   font-family: var(--mono);
-  font-size: 1.6rem;
+  font-size: 1.9rem;
   font-weight: 500;
 }
 .earnings-value.positive { color: var(--green); }
@@ -725,10 +778,42 @@ html, body {
   margin-top: 6px;
 }
 
-/* ── Weather daily rows ── */
-.wd-daily-row {
-  border-top: 1px solid var(--border);
+/* ── Weather hourly overlay ── */
+.weather-hourly-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
+
+.weather-hourly-day {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.weather-hour-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.weather-hour-time {
+  color: var(--text-dim);
+  min-width: 40px;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+}
+
+.weather-hour-icon { font-size: 1.2rem; min-width: 24px; }
+.weather-hour-temp { font-family: var(--mono); font-weight: 500; min-width: 45px; }
+.weather-hour-wind { color: var(--text-dim); min-width: 65px; }
+.weather-hour-rain { color: var(--text-dim); }
 
 /* ── TV Time ── */
 .stacked-cards {
@@ -740,6 +825,10 @@ html, body {
 }
 
 .tvtime-card {
+  flex: 1;
+}
+
+.stacked-cards .funds-card {
   flex: 1;
 }
 
@@ -832,41 +921,99 @@ html, body {
   text-transform: uppercase;
 }
 
+/* ── Cameras grid ── */
+.cameras-card {
+  flex: 1;
+  padding: 10px 14px;
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+}
+
+.camera-thumb {
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+}
+
+.camera-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.camera-thumb img.loaded { opacity: 0.8; }
+.camera-thumb:hover img.loaded { opacity: 1; }
+
+.camera-thumb:hover img { opacity: 1; }
+
+.camera-thumb-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(0,0,0,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ── Camera alert overlay ── */
 .overlay-panel-camera {
-  min-width: 500px;
-  max-width: 80vw;
+  min-width: 50vw;
+  max-width: 70vw;
   text-align: center;
+  padding: 16px 20px;
 }
 
-.camera-snapshot {
-  max-width: 100%;
-  max-height: 60vh;
+.camera-container {
+  position: relative;
+  width: 100%;
+  background: #000;
   border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  max-height: 75vh;
+}
+
+.camera-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  z-index: 1;
+  transition: opacity 0.3s;
 }
 
-/* ── App launcher button (bottom-left) ── */
-.launcher-btn {
-  position: fixed;
-  bottom: 12px;
-  left: 12px;
-  width: 48px;
-  height: 48px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-dim);
-  cursor: pointer;
-  border-radius: 12px;
-  transition: color 0.2s, background 0.2s;
+.camera-thumbnail.hidden-fade { opacity: 0; pointer-events: none; }
+
+.camera-stream {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
-.launcher-btn:hover {
-  color: var(--text);
-  background: var(--surface-hi);
-}
+.camera-stream.live { opacity: 1; }
 
 /* ── Utilities ── */
 .status-connected    { color: var(--green); }
