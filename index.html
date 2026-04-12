@@ -300,6 +300,8 @@
       </div>
     </div>
 
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
+
   </div>
 
   <!-- Overlay: All Temperatures -->
@@ -371,7 +373,7 @@
       <div class="overlay-title" id="camera-overlay-title">Front Door</div>
       <div class="camera-container">
         <img id="camera-thumbnail" class="camera-thumbnail" alt="">
-        <video id="camera-stream" class="camera-stream" autoplay muted playsinline></video>
+        <img id="camera-stream" class="camera-stream" alt="">
       </div>
     </div>
   </div>
@@ -409,6 +411,32 @@
   </div>
 
   <script>
+    // Theme toggle
+    const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    const toggleBtn = document.getElementById('theme-toggle');
+    function updateToggleIcon() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      toggleBtn.textContent = theme === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    }
+    updateToggleIcon();
+    toggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('dashboard-theme', next);
+      updateToggleIcon();
+    });
+
+    // Force reload on visibility change (PWA cache workaround)
+    let lastReload = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastReload > 60000) {
+        lastReload = Date.now();
+        location.reload();
+      }
+    });
+
     // Scale the fixed 1920×1120 layout to fit any screen
     function scaleDashboard() {
       const dash = document.querySelector('.dashboard');

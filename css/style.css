@@ -1,7 +1,7 @@
 /* ── Reset & Base ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
+:root, [data-theme="dark"] {
   --bg:         #080b10;
   --surface:    #111620;
   --surface-hi: #1a2030;
@@ -15,6 +15,29 @@
   --radius:     16px;
   --font:       'DM Sans', system-ui, -apple-system, sans-serif;
   --mono:       'JetBrains Mono', 'Consolas', monospace;
+  --chart-line: rgba(91,138,240,0.8);
+  --chart-fill: rgba(91,138,240,0.1);
+  --chart-grid: rgba(255,255,255,0.04);
+  --chart-tick: #6b7a90;
+  --clock-color: #fff;
+}
+
+[data-theme="light"] {
+  --bg:         #f0f2f5;
+  --surface:    #ffffff;
+  --surface-hi: #e8ecf0;
+  --border:     rgba(0,0,0,0.08);
+  --text:       #1a1f2a;
+  --text-dim:   #6b7a90;
+  --accent:     #4a7ae5;
+  --green:      #16a363;
+  --red:        #dc3545;
+  --amber:      #d49b0b;
+  --chart-line: rgba(74,122,229,0.9);
+  --chart-fill: rgba(74,122,229,0.12);
+  --chart-grid: rgba(0,0,0,0.05);
+  --chart-tick: #6b7a90;
+  --clock-color: var(--text);
 }
 
 html, body {
@@ -52,7 +75,7 @@ html, body {
   flex-direction: column;
   justify-content: flex-start;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
 }
 
 .card-title {
@@ -83,7 +106,7 @@ html, body {
   font-weight: 300;
   letter-spacing: -4px;
   line-height: 1;
-  color: #fff;
+  color: var(--clock-color);
 }
 
 .clock-date {
@@ -122,8 +145,8 @@ html, body {
   border-radius: 8px;
 }
 
-.door-status.locked   { color: var(--green); background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); }
-.door-status.unlocked { color: var(--red);   background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2); }
+.door-status.locked   { color: var(--green); background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.25); }
+.door-status.unlocked { color: var(--red);   background: rgba(220,53,69,0.12); border: 1px solid rgba(220,53,69,0.25); }
 
 /* ── Cars ── */
 .cars-card {
@@ -974,18 +997,20 @@ html, body {
 
 /* ── Camera alert overlay ── */
 .overlay-panel-camera {
-  min-width: 50vw;
-  max-width: 70vw;
   text-align: center;
   padding: 16px 20px;
+  width: auto;
+  min-width: auto;
+  max-width: 92vw;
 }
 
 .camera-container {
   position: relative;
-  width: 100%;
   background: #000;
   border-radius: 10px;
   overflow: hidden;
+  height: 75vh;
+  aspect-ratio: 16/9;
   aspect-ratio: 16/9;
   max-height: 75vh;
 }
@@ -1014,6 +1039,31 @@ html, body {
 }
 
 .camera-stream.live { opacity: 1; }
+
+/* ── Theme toggle ── */
+.theme-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-size: 1.3rem;
+  transition: color 0.2s, background 0.2s;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hi);
+}
 
 /* ── Utilities ── */
 .status-connected    { color: var(--green); }

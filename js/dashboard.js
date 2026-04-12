@@ -972,6 +972,16 @@ function timeSince(dateStr) {
 /* ── Shared chart helpers                    ── */
 /* ══════════════════════════════════════════════ */
 
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  return {
+    line: s.getPropertyValue('--chart-line').trim() || 'rgba(91,138,240,0.8)',
+    fill: s.getPropertyValue('--chart-fill').trim() || 'rgba(91,138,240,0.1)',
+    grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.04)',
+    tick: s.getPropertyValue('--chart-tick').trim() || '#6b7a90',
+  };
+}
+
 // SQL Server stores local time but mssql driver appends 'Z' — strip it
 function parseLocalTime(raw) {
   return new Date(typeof raw === 'string' ? raw.replace('Z', '') : raw);
@@ -979,9 +989,10 @@ function parseLocalTime(raw) {
 
 // Standard chart options for 24h line charts
 function make24hChartOptions(unit, yMin, yMax) {
+  const cc = getChartColors();
   const yScale = {
-    grid: { color: 'rgba(255,255,255,0.04)' },
-    ticks: { color: '#7a8394', font: { size: 11 }, callback: v => `${v} ${unit}` },
+    grid: { color: cc.grid },
+    ticks: { color: cc.tick, font: { size: 11 }, callback: v => `${v} ${unit}` },
     border: { display: false },
   };
   if (yMin !== undefined) yScale.min = yMin;
@@ -993,8 +1004,8 @@ function make24hChartOptions(unit, yMin, yMax) {
     spanGaps: true,
     scales: {
       x: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#7a8394', font: { size: 11 } },
+        grid: { color: cc.grid },
+        ticks: { color: cc.tick, font: { size: 11 } },
         border: { display: false },
       },
       y: yScale
@@ -1258,7 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       img.alt = cam.name;
       img.onload = () => img.classList.add('loaded');
       img.onerror = () => img.classList.remove('loaded');
-      img.src = `${CONFIG.go2rtcBase}/api/frame.jpeg?src=${cam.src}`;
+      img.src = `http://192.168.1.140:5000/api/${cam.name.toLowerCase()}/latest.jpg`;
       thumb.appendChild(img);
       const label = document.createElement('div');
       label.className = 'camera-thumb-label';
@@ -1267,7 +1278,8 @@ document.addEventListener('DOMContentLoaded', () => {
       thumb.addEventListener('click', () => {
         showCameraAlert({
           camera: cam.name.toLowerCase(),
-          stream: `${CONFIG.go2rtcBase}/api/stream.mp4?src=${cam.src}`,
+          thumbnail: `http://192.168.1.140:5000/api/${cam.name.toLowerCase()}/latest.jpg?t=${Date.now()}`,
+          stream: `http://192.168.1.140:5000/api/${cam.name.toLowerCase()}`,
         });
       });
       camGrid.appendChild(thumb);
@@ -1277,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       camGrid.querySelectorAll('.camera-thumb img').forEach((img, i) => {
         const newImg = new Image();
         newImg.onload = () => { img.src = newImg.src; img.classList.add('loaded'); };
-        newImg.src = `${CONFIG.go2rtcBase}/api/frame.jpeg?src=${CONFIG.cameras[i].src}&t=${Date.now()}`;
+        newImg.src = `http://192.168.1.140:5000/api/${CONFIG.cameras[i].name.toLowerCase()}/latest.jpg?t=${Date.now()}`;
       });
     }, 30_000);
   }
@@ -1402,23 +1414,21 @@ function initCameraSSE() {
 }
 
 function preloadCameraStream(data) {
-  const video = document.getElementById('camera-stream');
+  const stream = document.getElementById('camera-stream');
   if (!data.stream) return;
 
   cameraStreamReady = false;
-  video.classList.remove('live');
+  stream.classList.remove('live');
 
-  video.src = data.stream;
-  video.play().catch(() => {});
-
-  video.onplaying = () => {
+  stream.onload = () => {
     cameraStreamReady = true;
     const overlay = document.getElementById('camera-overlay');
     if (!overlay.classList.contains('hidden')) {
-      video.classList.add('live');
+      stream.classList.add('live');
       document.getElementById('camera-thumbnail').classList.add('hidden-fade');
     }
   };
+  stream.src = data.stream;
 
   // Tear down if no alert within 60s
   if (cameraPreloadTimer) clearTimeout(cameraPreloadTimer);
@@ -1428,8 +1438,6 @@ function preloadCameraStream(data) {
 }
 
 function showCameraAlert(data) {
-  if (!data.stream) return;
-
   const overlay = document.getElementById('camera-overlay');
   const title = document.getElementById('camera-overlay-title');
   const video = document.getElementById('camera-stream');
@@ -1438,7 +1446,7 @@ function showCameraAlert(data) {
   const camera = data.camera || 'front';
   title.textContent = camera.charAt(0).toUpperCase() + camera.slice(1);
 
-  // Show thumbnail immediately (only for MQTT alerts with thumbnail URL)
+  // Show snapshot immediately
   if (data.thumbnail) {
     thumbnail.src = data.thumbnail;
     thumbnail.classList.remove('hidden-fade');
@@ -1447,19 +1455,20 @@ function showCameraAlert(data) {
     thumbnail.classList.add('hidden-fade');
   }
 
-  // If stream already preloaded and playing, swap instantly
+  const stream = document.getElementById('camera-stream');
+
+  // If stream already preloaded, swap instantly
   if (cameraStreamReady) {
-    video.classList.add('live');
+    stream.classList.add('live');
     thumbnail.classList.add('hidden-fade');
-  } else {
-    video.classList.remove('live');
-    video.src = data.stream;
-    video.play().catch(() => {});
-    video.onplaying = () => {
+  } else if (data.stream) {
+    stream.classList.remove('live');
+    stream.onload = () => {
       cameraStreamReady = true;
-      video.classList.add('live');
+      stream.classList.add('live');
       thumbnail.classList.add('hidden-fade');
     };
+    stream.src = data.stream;
   }
 
   overlay.classList.remove('hidden');
@@ -1472,11 +1481,10 @@ function showCameraAlert(data) {
 }
 
 function tearDownCamera() {
-  const video = document.getElementById('camera-stream');
-  video.pause();
-  video.src = '';
-  video.classList.remove('live');
-  video.onplaying = null;
+  const stream = document.getElementById('camera-stream');
+  stream.src = '';
+  stream.classList.remove('live');
+  stream.onload = null;
   cameraStreamReady = false;
 }
 
