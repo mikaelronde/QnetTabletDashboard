@@ -1294,26 +1294,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 30_000);
   }
 
-  // TODO: TEMP test trigger — remove after testing
-  // Click clock once = preload, click again = show alert
-  let testClickCount = 0;
-  document.querySelector('.clock-card').addEventListener('click', () => {
-    testClickCount++;
-    const testData = {
-      camera: 'front',
-      eventId: 'test',
-      thumbnail: 'http://192.168.1.140:5000/api/events/test/thumbnail.jpg',
-      stream: 'http://192.168.1.140:1984/api/stream.mp4?src=front_sub',
-    };
-    if (testClickCount % 2 === 1) {
-      console.log('TEST: preloading stream...');
-      preloadCameraStream(testData);
-    } else {
-      console.log('TEST: showing alert...');
-      showCameraAlert(testData);
-    }
-  });
-
   // Pool card click → temperature history
   document.querySelector('.pool-card')?.addEventListener('click', () => {
     showTempHistory('pool', 'Pool');
@@ -1389,8 +1369,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let cameraAlertTimer = null;
-let cameraPreloadTimer = null;
-let cameraStreamReady = false;
 
 function initCameraSSE() {
   const sse = new EventSource(CONFIG.sseUrl);
@@ -1398,11 +1376,12 @@ function initCameraSSE() {
   sse.addEventListener('frigate_alert', (e) => {
     try {
       const data = JSON.parse(e.data);
-      if (data.action === 'preload') {
-        preloadCameraStream(data);
-      } else if (data.action === 'alert') {
-        showCameraAlert(data);
-      }
+      const camera = data.camera || 'front';
+      showCameraAlert({
+        camera,
+        thumbnail: data.thumbnail || `http://192.168.1.140:5000/api/${camera}/latest.jpg?t=${Date.now()}`,
+        stream: data.stream || `http://192.168.1.140:5000/api/${camera}`,
+      });
     } catch (err) {
       console.error('Failed to parse frigate_alert:', err);
     }
@@ -1413,34 +1392,10 @@ function initCameraSSE() {
   };
 }
 
-function preloadCameraStream(data) {
-  const stream = document.getElementById('camera-stream');
-  if (!data.stream) return;
-
-  cameraStreamReady = false;
-  stream.classList.remove('live');
-
-  stream.onload = () => {
-    cameraStreamReady = true;
-    const overlay = document.getElementById('camera-overlay');
-    if (!overlay.classList.contains('hidden')) {
-      stream.classList.add('live');
-      document.getElementById('camera-thumbnail').classList.add('hidden-fade');
-    }
-  };
-  stream.src = data.stream;
-
-  // Tear down if no alert within 60s
-  if (cameraPreloadTimer) clearTimeout(cameraPreloadTimer);
-  cameraPreloadTimer = setTimeout(() => {
-    tearDownCamera();
-  }, 60_000);
-}
-
 function showCameraAlert(data) {
   const overlay = document.getElementById('camera-overlay');
   const title = document.getElementById('camera-overlay-title');
-  const video = document.getElementById('camera-stream');
+  const stream = document.getElementById('camera-stream');
   const thumbnail = document.getElementById('camera-thumbnail');
 
   const camera = data.camera || 'front';
@@ -1455,16 +1410,10 @@ function showCameraAlert(data) {
     thumbnail.classList.add('hidden-fade');
   }
 
-  const stream = document.getElementById('camera-stream');
-
-  // If stream already preloaded, swap instantly
-  if (cameraStreamReady) {
-    stream.classList.add('live');
-    thumbnail.classList.add('hidden-fade');
-  } else if (data.stream) {
-    stream.classList.remove('live');
+  // Start MJPEG stream, swap when first frame arrives
+  stream.classList.remove('live');
+  if (data.stream) {
     stream.onload = () => {
-      cameraStreamReady = true;
       stream.classList.add('live');
       thumbnail.classList.add('hidden-fade');
     };
@@ -1480,21 +1429,15 @@ function showCameraAlert(data) {
   }, CONFIG.cameraAlertDuration);
 }
 
-function tearDownCamera() {
+function closeCameraOverlay() {
+  const overlay = document.getElementById('camera-overlay');
   const stream = document.getElementById('camera-stream');
+  const thumbnail = document.getElementById('camera-thumbnail');
+  overlay.classList.add('hidden');
   stream.src = '';
   stream.classList.remove('live');
   stream.onload = null;
-  cameraStreamReady = false;
-}
-
-function closeCameraOverlay() {
-  const overlay = document.getElementById('camera-overlay');
-  const thumbnail = document.getElementById('camera-thumbnail');
-  overlay.classList.add('hidden');
-  tearDownCamera();
   thumbnail.src = '';
   thumbnail.classList.remove('hidden-fade');
-  if (cameraPreloadTimer) clearTimeout(cameraPreloadTimer);
   if (cameraAlertTimer) clearTimeout(cameraAlertTimer);
 }
