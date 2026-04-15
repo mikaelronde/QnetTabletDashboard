@@ -145,10 +145,17 @@
     </div>
 
     <div class="stacked-cards">
+      <div class="card tv-card">
+        <div class="card-title">TV</div>
+        <div id="tv-list"></div>
+      </div>
       <div class="card tvtime-card">
         <div class="card-title">Screen Time</div>
         <div id="tvtime-list"></div>
       </div>
+    </div>
+
+    <div class="funds-ukraine-stack">
       <div class="card funds-card">
         <div class="card-title">Funds</div>
         <div class="funds-row">
@@ -160,36 +167,13 @@
           <span class="funds-value positive" id="funds-total">–</span>
         </div>
       </div>
-    </div>
-
-
-    <div class="card ukraine-card">
-      <div class="ukraine-title">Ukraine</div>
-      <div class="ukraine-grid">
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-personnel">–</span>
-          <span class="ukraine-label">Personnel</span>
+      <div class="card ukraine-card" id="ukraine-card">
+        <div class="card-title">Ukraine</div>
+        <div class="ukraine-mini">
+          <span class="ukraine-mini-icon" id="ua-mini-icon">⚔</span>
+          <span class="ukraine-mini-label" id="ua-mini-label">Personnel</span>
         </div>
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-tanks">–</span>
-          <span class="ukraine-label">Tanks</span>
-        </div>
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-artillery">–</span>
-          <span class="ukraine-label">Artillery</span>
-        </div>
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-armored">–</span>
-          <span class="ukraine-label">APV/AA</span>
-        </div>
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-aircraft">–</span>
-          <span class="ukraine-label">Aircraft</span>
-        </div>
-        <div class="ukraine-stat">
-          <span class="ukraine-value" id="ua-missiles">–</span>
-          <span class="ukraine-label">Missiles</span>
-        </div>
+        <div class="ukraine-mini-value" id="ua-mini-value">–</div>
       </div>
     </div>
 
@@ -364,6 +348,39 @@
     <div class="overlay-panel">
       <div class="overlay-title" id="ronde-overlay-title">Tasks</div>
       <div id="ronde-detail"></div>
+    </div>
+  </div>
+
+  <!-- Overlay: Ukraine Stats -->
+  <div class="overlay hidden" id="ukraine-overlay">
+    <div class="overlay-panel">
+      <div class="overlay-title">Ukraine</div>
+      <div class="ukraine-grid">
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-personnel">–</span>
+          <span class="ukraine-label">Personnel</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-tanks">–</span>
+          <span class="ukraine-label">Tanks</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-artillery">–</span>
+          <span class="ukraine-label">Artillery</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-armored">–</span>
+          <span class="ukraine-label">APV/AA</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-aircraft">–</span>
+          <span class="ukraine-label">Aircraft</span>
+        </div>
+        <div class="ukraine-stat">
+          <span class="ukraine-value" id="ua-missiles">–</span>
+          <span class="ukraine-label">Missiles</span>
+        </div>
+      </div>
     </div>
   </div>
 

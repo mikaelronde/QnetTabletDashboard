@@ -12,7 +12,7 @@ const CONFIG = {
   statusPollInterval: 60_000,
   rondeStatusUrl: 'http://192.168.1.100/ronde/status.json',
   sseUrl: 'http://192.168.1.100:5480/',
-  cameraAlertDuration: 60_000,
+  cameraAlertDuration: 30_000,
   cameras: [
     { name: 'Front', src: 'front_sub' },
     { name: 'Back', src: 'back_sub' },
@@ -286,6 +286,10 @@ function toggleOverlay(id) {
 
 document.getElementById('temps-overlay')?.addEventListener('click', () => toggleOverlay('temps-overlay'));
 document.getElementById('weather-overlay').addEventListener('click', () => toggleOverlay('weather-overlay'));
+document.getElementById('ukraine-overlay').addEventListener('click', () => toggleOverlay('ukraine-overlay'));
+
+// Ukraine card click
+document.getElementById('ukraine-card').addEventListener('click', () => toggleOverlay('ukraine-overlay'));
 
 // Stop clicks on the panel from closing the overlay
 document.querySelectorAll('.overlay-panel').forEach(p => p.addEventListener('click', e => e.stopPropagation()));
@@ -540,6 +544,9 @@ function updateDashboard(data) {
   if (data.tvTime?.children) {
     updateTvTime(data.tvTime.children);
   }
+  if (data.tvTime?.tvs) {
+    updateTvList(data.tvTime.tvs);
+  }
 }
 
 function setDoorStatus(id, locked) {
@@ -648,6 +655,92 @@ function updateUkraine(stats) {
   for (const [id, stat] of Object.entries(map)) {
     const el = document.getElementById(id);
     if (el && stat) el.textContent = parseUkraineValue(stat.value);
+  }
+
+  // Update mini card — priority: aircraft > 0, tanks > 10, else personnel
+  const aircraftVal = Number(parseUkraineValue(stats.aircraft?.value)) || 0;
+  const tanksVal = Number(parseUkraineValue(stats.tanks?.value)) || 0;
+  const personnelVal = parseUkraineValue(stats.personnel?.value);
+
+  const miniIcon = document.getElementById('ua-mini-icon');
+  const miniValue = document.getElementById('ua-mini-value');
+  const miniLabel = document.getElementById('ua-mini-label');
+
+  if (aircraftVal > 0) {
+    miniIcon.textContent = '\u2708';
+    miniValue.textContent = aircraftVal;
+    miniLabel.textContent = 'Aircraft';
+  } else if (tanksVal > 10) {
+    miniIcon.textContent = '\uD83D\uDE9C';
+    miniValue.textContent = tanksVal;
+    miniLabel.textContent = 'Tanks';
+  } else {
+    miniIcon.textContent = '\u2694';
+    miniValue.textContent = personnelVal;
+    miniLabel.textContent = 'Personnel';
+  }
+}
+
+const TV_NAME_MAP = {
+  'livingroom': 'Livingroom TV',
+  'ellie': "Ellies TV",
+  'agnes': "Agnes TV",
+};
+
+function tvOff(tvKey) {
+  fetch(`http://server.quas.net:8300/tvoff ${tvKey}`, { method: 'POST' });
+  // Fake immediate UI update
+  const container = document.getElementById('tv-list');
+  if (!container) return;
+  for (const row of container.querySelectorAll('.tv-row')) {
+    const nameEl = row.querySelector('.tv-name');
+    const displayName = TV_NAME_MAP[tvKey] || tvKey;
+    if (nameEl && nameEl.textContent === displayName) {
+      nameEl.classList.add('tv-off');
+      const watcher = row.querySelector('.tv-watcher');
+      if (watcher) { watcher.textContent = 'Off'; watcher.classList.add('tv-off'); }
+      const btn = row.querySelector('.tv-off-btn');
+      if (btn) btn.remove();
+      break;
+    }
+  }
+}
+
+function updateTvList(tvs) {
+  const container = document.getElementById('tv-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (const tv of tvs) {
+    const row = document.createElement('div');
+    row.className = 'tv-row';
+    const watcher = tv.whoIsWatching;
+    const isOff = !watcher || watcher === 'none' || watcher === '';
+    const tvKey = (tv.name || '').toLowerCase();
+    const displayName = TV_NAME_MAP[tvKey] || tv.name;
+    const left = document.createElement('span');
+    left.className = 'tv-left';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = `tv-name${isOff ? ' tv-off' : ''}`;
+    nameSpan.textContent = displayName;
+    left.appendChild(nameSpan);
+    if (!isOff) {
+      const btn = document.createElement('button');
+      btn.className = 'tv-off-btn';
+      btn.title = 'Turn off';
+      btn.textContent = '\u23FB';
+      btn.addEventListener('click', () => tvOff(tvKey));
+      left.appendChild(btn);
+    }
+
+    const watcherName = isOff ? 'Off' : watcher.charAt(0).toUpperCase() + watcher.slice(1);
+    const watcherSpan = document.createElement('span');
+    watcherSpan.className = `tv-watcher${isOff ? ' tv-off' : ''}`;
+    watcherSpan.textContent = watcherName;
+
+    row.appendChild(left);
+    row.appendChild(watcherSpan);
+    container.appendChild(row);
   }
 }
 
@@ -1376,11 +1469,10 @@ function initCameraSSE() {
   sse.addEventListener('frigate_alert', (e) => {
     try {
       const data = JSON.parse(e.data);
-      const camera = data.camera || 'front';
       showCameraAlert({
-        camera,
-        thumbnail: data.thumbnail || `http://192.168.1.140:5000/api/${camera}/latest.jpg?t=${Date.now()}`,
-        stream: data.stream || `http://192.168.1.140:5000/api/${camera}`,
+        camera: 'front',
+        thumbnail: `http://192.168.1.140:5000/api/front/latest.jpg?t=${Date.now()}`,
+        stream: 'http://192.168.1.140:5000/api/front',
       });
     } catch (err) {
       console.error('Failed to parse frigate_alert:', err);
