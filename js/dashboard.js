@@ -312,9 +312,18 @@ document.querySelectorAll('.temps-card .temp-row-clickable').forEach(row => {
 
 /* ── Price Chart ── */
 let priceChart = null;
+let priceChartOverlay = null;
+let lastNordpoolPrices = null;
+
+// Click chart card to open overlay
+document.querySelector('.chart-card').addEventListener('click', () => {
+  if (lastNordpoolPrices) showPriceOverlay(lastNordpoolPrices);
+});
+document.getElementById('price-overlay').addEventListener('click', () => toggleOverlay('price-overlay'));
 
 function initPriceChart(nordpoolPrices) {
   if (!nordpoolPrices || nordpoolPrices.length === 0) return;
+  lastNordpoolPrices = nordpoolPrices;
 
   const ctx = document.getElementById('price-chart').getContext('2d');
   const now = new Date();
@@ -390,7 +399,7 @@ function initPriceChart(nordpoolPrices) {
           grid: { display: false },
           ticks: {
             color: '#6b7a90',
-            font: { size: 11 },
+            font: { size: 13 },
             maxTicksLimit: isMultiDay ? 12 : 8,
             callback: function(val, idx) {
               // Show only full hours
@@ -409,8 +418,119 @@ function initPriceChart(nordpoolPrices) {
           grid: { color: 'rgba(255,255,255,0.04)' },
           ticks: {
             color: '#6b7a90',
-            font: { size: 11 },
+            font: { size: 13 },
             maxTicksLimit: 4,
+          },
+          border: { display: false },
+          min: 0,
+        }
+      }
+    }
+  });
+}
+
+function showPriceOverlay(nordpoolPrices) {
+  const overlay = document.getElementById('price-overlay');
+  overlay.classList.remove('hidden');
+
+  // Copy current/max values into overlay header
+  document.getElementById('price-overlay-current').textContent =
+    document.getElementById('price-current').textContent;
+  document.getElementById('price-overlay-max').innerHTML =
+    document.getElementById('price-max').innerHTML;
+
+  if (priceChartOverlay) { priceChartOverlay.destroy(); priceChartOverlay = null; }
+
+  const ctx = document.getElementById('price-chart-overlay').getContext('2d');
+  const now = new Date();
+  const currentQtr = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+
+  const sorted = [...nordpoolPrices].sort((a, b) => new Date(a.time) - new Date(b.time));
+  const days = {};
+  for (const entry of sorted) {
+    const d = new Date(entry.time);
+    const dayKey = d.toLocaleDateString('sv-SE');
+    if (!days[dayKey]) days[dayKey] = [];
+    days[dayKey].push(entry);
+  }
+  const dayKeys = Object.keys(days).sort();
+  const isMultiDay = dayKeys.length > 1;
+
+  const prices = sorted.map(e => Math.round(e.price));
+  const labels = sorted.map(e => {
+    const d = new Date(e.time);
+    return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  });
+
+  const todayCount = days[dayKeys[0]]?.length || 96;
+  const pointColors = prices.map((_, i) => {
+    if (i === currentQtr) return 'rgba(91,138,240,1)';
+    return 'transparent';
+  });
+  const segmentColor = (ctx) => {
+    const i = ctx.p0DataIndex;
+    if (isMultiDay && i >= todayCount) return 'rgba(91,138,240,0.3)';
+    return 'rgba(91,138,240,0.8)';
+  };
+  const fillColor = (ctx) => {
+    const i = ctx.p0DataIndex;
+    if (isMultiDay && i >= todayCount) return 'rgba(91,138,240,0.03)';
+    return 'rgba(91,138,240,0.1)';
+  };
+
+  priceChartOverlay = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: prices,
+        borderColor: 'rgba(91,138,240,0.8)',
+        backgroundColor: 'rgba(91,138,240,0.08)',
+        segment: { borderColor: segmentColor, backgroundColor: fillColor },
+        fill: true,
+        tension: 0.2,
+        pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 6),
+        pointBackgroundColor: pointColors,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label: (ctx) => `${ctx.parsed.y} öre/kWh`,
+          }
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#6b7a90',
+            font: { size: 18 },
+            maxTicksLimit: isMultiDay ? 16 : 12,
+            callback: function(val, idx) {
+              const label = this.getLabelForValue(idx);
+              if (label && label.endsWith(':00')) {
+                const hour = parseInt(label);
+                if (isMultiDay) return hour % 3 === 0 ? label : '';
+                return hour % 2 === 0 ? label : '';
+              }
+              return '';
+            },
+          },
+          border: { display: false },
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: '#6b7a90',
+            font: { size: 18 },
+            maxTicksLimit: 6,
           },
           border: { display: false },
           min: 0,
