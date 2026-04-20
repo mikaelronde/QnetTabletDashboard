@@ -1,19 +1,10 @@
 const express = require('express');
 const sql = require('mssql');
 
+const dbConfig = require('./db-config');
+
 const app = express();
 const PORT = 3001;
-
-// SQL Server connection config (shared base)
-const dbConfig = {
-  server: '192.168.1.100',
-  user: 'quas',
-  password: 'bonnie',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-  },
-};
 
 // One dedicated ConnectionPool per database (not the global sql.connect)
 const pools = {};
