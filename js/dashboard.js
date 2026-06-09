@@ -284,6 +284,30 @@ function toggleOverlay(id) {
   overlay.classList.toggle('hidden');
 }
 
+/* ── Auto-close any open overlay after a period of inactivity ──
+   Watches every *-overlay element's class list: when one becomes
+   visible it arms a timer to re-hide it; closing it clears the timer. */
+const OVERLAY_AUTOCLOSE_MS = 60_000;
+(function setupOverlayAutoClose() {
+  const timers = new WeakMap();
+  const observer = new MutationObserver(mutations => {
+    for (const m of mutations) {
+      const el = m.target;
+      if (el.classList.contains('hidden')) {
+        clearTimeout(timers.get(el));
+        timers.delete(el);
+      } else if (!timers.has(el)) {
+        timers.set(el, setTimeout(() => {
+          el.classList.add('hidden');
+          timers.delete(el);
+        }, OVERLAY_AUTOCLOSE_MS));
+      }
+    }
+  });
+  document.querySelectorAll('[id$="-overlay"]').forEach(el =>
+    observer.observe(el, { attributes: true, attributeFilter: ['class'] }));
+})();
+
 document.getElementById('temps-overlay')?.addEventListener('click', () => toggleOverlay('temps-overlay'));
 document.getElementById('weather-overlay').addEventListener('click', () => toggleOverlay('weather-overlay'));
 document.getElementById('ukraine-overlay').addEventListener('click', () => toggleOverlay('ukraine-overlay'));
@@ -314,16 +338,18 @@ document.querySelectorAll('.temps-card .temp-row-clickable').forEach(row => {
 let priceChart = null;
 let priceChartOverlay = null;
 let lastNordpoolPrices = null;
+let lastBaseEnergyCost = null;
 
 // Click chart card to open overlay
 document.querySelector('.chart-card').addEventListener('click', () => {
-  if (lastNordpoolPrices) showPriceOverlay(lastNordpoolPrices);
+  if (lastNordpoolPrices) showPriceOverlay(lastNordpoolPrices, lastBaseEnergyCost);
 });
 document.getElementById('price-overlay').addEventListener('click', () => toggleOverlay('price-overlay'));
 
-function initPriceChart(nordpoolPrices) {
+function initPriceChart(nordpoolPrices, baseEnergyCost) {
   if (!nordpoolPrices || nordpoolPrices.length === 0) return;
   lastNordpoolPrices = nordpoolPrices;
+  lastBaseEnergyCost = baseEnergyCost;
 
   const ctx = document.getElementById('price-chart').getContext('2d');
   const now = new Date();
@@ -364,32 +390,47 @@ function initPriceChart(nordpoolPrices) {
     return 'rgba(91,138,240,0.1)';
   };
 
+  const baseLine = baseEnergyCost != null ? prices.map(() => baseEnergyCost) : null;
+
   if (priceChart) {
     priceChart.data.labels = labels;
     priceChart.data.datasets[0].data = prices;
+    if (baseLine && priceChart.data.datasets[1]) {
+      priceChart.data.datasets[1].data = baseLine;
+    }
     priceChart.update('none');
     return;
   }
 
+  const datasets = [{
+    data: prices,
+    borderColor: 'rgba(91,138,240,0.8)',
+    backgroundColor: 'rgba(91,138,240,0.08)',
+    segment: {
+      borderColor: segmentColor,
+      backgroundColor: fillColor,
+    },
+    fill: true,
+    tension: 0.2,
+    pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 5),
+    pointBackgroundColor: pointColors,
+    borderWidth: 2,
+  }];
+  if (baseLine) {
+    datasets.push({
+      data: baseLine,
+      borderColor: 'rgba(220,80,80,0.8)',
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      fill: false,
+      pointRadius: 0,
+      tension: 0,
+    });
+  }
+
   priceChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: prices,
-        borderColor: 'rgba(91,138,240,0.8)',
-        backgroundColor: 'rgba(91,138,240,0.08)',
-        segment: {
-          borderColor: segmentColor,
-          backgroundColor: fillColor,
-        },
-        fill: true,
-        tension: 0.2,
-        pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 5),
-        pointBackgroundColor: pointColors,
-        borderWidth: 2,
-      }]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -429,7 +470,7 @@ function initPriceChart(nordpoolPrices) {
   });
 }
 
-function showPriceOverlay(nordpoolPrices) {
+function showPriceOverlay(nordpoolPrices, baseEnergyCost) {
   const overlay = document.getElementById('price-overlay');
   overlay.classList.remove('hidden');
 
@@ -478,22 +519,32 @@ function showPriceOverlay(nordpoolPrices) {
     return 'rgba(91,138,240,0.1)';
   };
 
+  const overlayDatasets = [{
+    data: prices,
+    borderColor: 'rgba(91,138,240,0.8)',
+    backgroundColor: 'rgba(91,138,240,0.08)',
+    segment: { borderColor: segmentColor, backgroundColor: fillColor },
+    fill: true,
+    tension: 0.2,
+    pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 6),
+    pointBackgroundColor: pointColors,
+    borderWidth: 2,
+  }];
+  if (baseEnergyCost != null) {
+    overlayDatasets.push({
+      data: prices.map(() => baseEnergyCost),
+      borderColor: 'rgba(220,80,80,0.8)',
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      fill: false,
+      pointRadius: 0,
+      tension: 0,
+    });
+  }
+
   priceChartOverlay = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: prices,
-        borderColor: 'rgba(91,138,240,0.8)',
-        backgroundColor: 'rgba(91,138,240,0.08)',
-        segment: { borderColor: segmentColor, backgroundColor: fillColor },
-        fill: true,
-        tension: 0.2,
-        pointRadius: pointColors.map(c => c === 'transparent' ? 0 : 6),
-        pointBackgroundColor: pointColors,
-        borderWidth: 2,
-      }]
-    },
+    data: { labels, datasets: overlayDatasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -635,7 +686,7 @@ function updateDashboard(data) {
 
   // NordPool prices chart
   if (data.nordpoolPrices?.length) {
-    initPriceChart(data.nordpoolPrices);
+    initPriceChart(data.nordpoolPrices, data.energyCost?.baseEnergyCost);
     const days = new Set(data.nordpoolPrices.map(p => new Date(p.time).toLocaleDateString('sv-SE')));
     const titleEl = document.querySelector('.chart-header span:first-child');
     if (titleEl) titleEl.textContent = days.size > 1 ? 'Energy Price Today + Tomorrow' : 'Energy Price Today';
@@ -940,43 +991,53 @@ function renderRondeKpis(data) {
         <span class="ronde-status ${colorClass}">${completed}/${total}</span>`;
     }
 
-    row.addEventListener('click', () => showRondeDetail(name));
     container.appendChild(row);
   }
 }
 
-function showRondeDetail(name) {
+function showRondeDetail() {
   const overlay = document.getElementById('ronde-overlay');
   const title = document.getElementById('ronde-overlay-title');
   const detail = document.getElementById('ronde-detail');
 
-  title.textContent = `${name.charAt(0).toUpperCase() + name.slice(1)} \u2014 Tasks`;
+  title.textContent = 'Tasks';
   overlay.classList.remove('hidden');
   detail.innerHTML = '';
 
   const today = new Date().toLocaleDateString('sv-SE');
-  const person = cachedRondeData?.[name];
-  const isToday = person?.date === today ||
-    (person?.updated_at && new Date(person.updated_at).toLocaleDateString('sv-SE') === today);
 
-  if (!person || !isToday) {
-    detail.innerHTML = '<div style="color:var(--text-dim);font-size:1.2rem;padding:12px 0">No data for today</div>';
-    return;
-  }
+  for (const name of RONDE_USERS) {
+    const person = cachedRondeData?.[name];
+    const isToday = person?.date === today ||
+      (person?.updated_at && new Date(person.updated_at).toLocaleDateString('sv-SE') === today);
 
-  for (const task of (person.tasks || [])) {
-    const row = document.createElement('div');
-    row.className = 'ronde-task-row';
+    const header = document.createElement('div');
+    header.className = 'ronde-detail-name';
+    header.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+    detail.appendChild(header);
 
-    let color, label;
-    if (task.status === 'completed') { color = 'var(--green)'; label = '\u2713'; }
-    else if (task.status === 'late') { color = 'var(--red)'; label = 'LATE'; }
-    else { color = 'var(--amber)'; label = 'DUE'; }
+    if (!person || !isToday) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:var(--text-dim);font-size:1.1rem;padding:4px 0 12px';
+      empty.textContent = 'No data for today';
+      detail.appendChild(empty);
+      continue;
+    }
 
-    row.innerHTML = `
-      <span class="ronde-task-text" style="color:${color}">${task.text}</span>
-      <span class="ronde-task-status" style="color:${color}">${label}</span>`;
-    detail.appendChild(row);
+    for (const task of (person.tasks || [])) {
+      const row = document.createElement('div');
+      row.className = 'ronde-task-row';
+
+      let color, label;
+      if (task.status === 'completed') { color = 'var(--green)'; label = '\u2713'; }
+      else if (task.status === 'late') { color = 'var(--red)'; label = 'LATE'; }
+      else { color = 'var(--amber)'; label = 'DUE'; }
+
+      row.innerHTML = `
+        <span class="ronde-task-text" style="color:${color}">${task.text}</span>
+        <span class="ronde-task-status" style="color:${color}">${label}</span>`;
+      detail.appendChild(row);
+    }
   }
 }
 
@@ -1564,6 +1625,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(fetchHealthCheck, CONFIG.statusPollInterval);
   setInterval(fetchSqlBackup, CONFIG.statusPollInterval);
   setInterval(fetchRondeStatus, CONFIG.statusPollInterval);
+
+  // Rönde card: click anywhere to open all tasks
+  document.querySelector('.ronde-card-r1')?.addEventListener('click', () => showRondeDetail());
 
   // Rönde overlay close
   document.getElementById('ronde-overlay').addEventListener('click', () => {

@@ -1019,6 +1019,17 @@ html, body {
 .ronde-status.red { color: var(--red); }
 .ronde-status.unknown { color: var(--text-dim); opacity: 0.5; }
 
+.ronde-detail-name {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 16px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--border);
+}
+.ronde-detail-name:first-child { margin-top: 0; }
+
+.ronde-card-r1 { cursor: pointer; }
+
 .ronde-task-row {
   display: flex;
   align-items: center;
